@@ -19,11 +19,3 @@ auc_text = paste(auc_text, collapse = '|')
 
 possible_matches = filter(raw_pubmed,grepl(auc_text,abstract,ignore.case=T))
 
-raw_pubmed %>% filter()
-
-
-auc_text = c('\\bauac\\b','\\bauroc\\b','\\bauc\\b','area under the curve','area under the accumulation curve','area under curve','area under roc curve')
-auc_text = paste(auc_text, collapse = '|')
-any_auc = str_detect(tolower(abstract), pattern = auc_text)
-
-
