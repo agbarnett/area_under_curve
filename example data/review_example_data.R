@@ -12,10 +12,17 @@ raw_pubmed = raw_pubmed %>% mutate_at('abstract',~str_squish(.) %>%
 
 
 #find all abstracts with AUC, ROC, AUROC and area under.*
-auc_text = c('\\bauac\\b','\\bauroc\\b','\\baucroc\\b','\\bauc\\b','\\broc\\b','area under','receiver operating','c-statistic','c statistic')
+auc_text = c(
+  '\\bauac\\b',
+  '\\bauroc\\b',
+  '\\baucroc\\b',
+  '\\bauc\\b',
+  '\\broc\\b',
+  'area[ ,-]under',
+  'receiver[ ,-]operating',
+  'c[ ,-]statistic'
+)
 auc_text = paste(auc_text, collapse = '|')
 
 
-
 possible_matches = filter(raw_pubmed,grepl(auc_text,abstract,ignore.case=T))
-
