@@ -18,9 +18,9 @@ auc_text = c(
   '\\baucroc\\b',
   '\\bauc\\b',
   '\\broc\\b',
-  'area[ ,-]under',
-  'receiver[ ,-]operating',
-  'c[ ,-]statistic'
+  '\\barea.under\\b',
+  '\\breceiver.operat[a-z]*\\b',
+  '\\bc.statistics?\\b'
 )
 auc_text = paste(auc_text, collapse = '|')
 
