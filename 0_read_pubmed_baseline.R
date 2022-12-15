@@ -29,6 +29,7 @@ for (number in fnumbers){
   if(file_exists == TRUE){ # if file exists move to next number
     next
   }
+  cat('number = ' , number, '\n', sep='')
   file = paste(download_location, '/pubmed22n', number, '.xml', sep='')
   try(source('0b_run_read_baseline.R')) # run and ignore errors
 }

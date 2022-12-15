@@ -52,4 +52,6 @@ rsconnect/
 notes.txt
 data/
 raw/
+processed/
 *.docx
+0_my_pubmed_key_do_not_share.R

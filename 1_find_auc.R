@@ -1,7 +1,7 @@
 # 1_find_auc.R
-# find and extract the AUC statistics in the abstracts
-# moved to lyra?
-# October 2022
+# find and extract the AUC statistics in the pubmed abstracts
+# moved to lyra? not yet!
+# December 2022
 library(stringr)
 library(dplyr)
 library(tidyr)
@@ -9,7 +9,8 @@ library(words2number) # convert words to number, e.g. 'forty' = '40'
 source('99_main_function_abstract.R') # main function for abstracts
 source('99_functions.R') # 
 source('1_confidence_intervals_pattern.R')
-source('1_other_patterns.R')
+source('1_patterns.R') # text patterns for matching
+source('../narrator/98_key_not_sharing.R')
 
 # load data for further processing.
 files_to_loop = dir('raw', pattern='baseline')
@@ -31,6 +32,15 @@ for (file in files_to_loop){  #
   ## process the papers in a large loop
   abstract.data = excluded.abstracts = aucs = NULL # start with empty data sets
   for (k in 1:nrow(raw_pubmed)){ # loop through abstracts
+    
+    # exclude meta-analysis based on title or abstract
+    meta1 = str_detect(raw_pubmed$title[k], 'meta.?analys(i|e)s')
+    meta2 = str_detect(raw_pubmed$abstract[k], 'meta.?analys(i|e)s')
+    if(meta1 == TRUE | meta2 == TRUE){
+      this.exclude = data.frame(pmid=raw_pubmed$pmid[k], date=raw_pubmed$date[k], type=raw_pubmed$type[k], reason='Meta-analysis', stringsAsFactors = FALSE)
+      excluded.abstracts = bind_rows(excluded.abstracts, this.exclude) 
+      next # skip to next abstract
+    }
     
     # abstracts
     abstract.empty = FALSE

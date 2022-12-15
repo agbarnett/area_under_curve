@@ -9,10 +9,11 @@ levels = c(11,80,90,95,99) # currently common numbers, could replace with two in
 # ci and pi with space after (plus plurals) to avoid picking up words that start with these two letters
 # typo 'uncertainly' from PMID:29171811
 # 'uncertainty range' from PMID:28045934
-words = c('cis?','cris?','cls?','uis?','urs?','pis?','confidence intervals?',
+words = c('\\bcis?','\\bcris?','\\bcls?','\\buis?','\\burs?','\\bpis?',
+          'confidence intervals?',
           'confidence intervals? ?\\(ci\\)',
           'confidence intervals? ?\\[ci\\]',
-          'posterior intervals?','credibility intervals?','prediction intervals?',
+          'posterior intervals?','credibility intervals?', 'prediction intervals?',
           'ranges?','uncertainly intervals?', 'uncertainty ranges?')
 operators = c('',':','=','\\(')
 # create all combinations
@@ -31,7 +32,7 @@ for (p in ci.phrases){ #
   }
 }
 # add a few more (found in abstracts)
-annals.patterns = c('\\(ci,', '\\(ci ', '\\[ci ', '\\[ci,',' ci ',' ci,',',ci ')
+annals.patterns = c('\\(ci,', '\\(ci ', '\\[ci ', '\\[ci,',' ci ',' ci,',',ci ',', ci')
 annals.patterns = paste(annals.patterns, collapse='|')
 ci.pattern.spaces = paste(c(ci.pattern.spaces, annals.patterns), collapse='|') # for Annals
 ci.pattern.spaces = paste(c(ci.pattern.spaces, 'ci 95%', 'ci95%'), collapse='|') # reversed wording from 28228447 and 29176802
