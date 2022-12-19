@@ -12,7 +12,7 @@ source('0_my_pubmed_key_do_not_share.R')
 ## part 1: get new sample of papers that likely have AUC ##
 
 # search pubmed; removed PK studies as there were too many
-year = '2022' # year to search pubmed
+year = '2020' # year to search pubmed
 query = paste('(', year, '[pdat] AND hasabstract AND Area Under Curve[mesh]) NOT (meta-analyses[tiab] OR metaanalyses[tiab] OR meta-analysis[tiab] OR metaanalysis[tiab] OR pharmacokinetic[tiab] OR pharmacokinetics[tiab])', sep='')
 search = entrez_search(db = "pubmed",
               term = query,
@@ -44,9 +44,10 @@ for (k in 1:n_sample){
 
 ## part 2: export for checking by hand
 # add blank column names for hand entered data
-for_excel = mutate(for_excel,
-                   actual_sample_size = NA,
-                   actual_AUC = NA) 
+for_excel = select(random_selection, pmid, abstract) %>%
+  mutate(actual_sample_size = NA,
+         actual_AUC = NA)
+  
 #%>% arrange(pmid) # not useful
 # header style
 hs = createStyle(fontColour = "#ffffff", fgFill = "#4F80BD", halign = "center", wrapText = TRUE,

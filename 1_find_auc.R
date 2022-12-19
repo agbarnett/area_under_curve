@@ -12,6 +12,10 @@ source('1_confidence_intervals_pattern.R')
 source('1_patterns.R') # text patterns for matching
 source('../narrator/98_key_not_sharing.R')
 
+# studies to exclude based on title and abstract
+exclude = c('meta.?analys(i|e)s','pooled.?analys(i|e)s','tutorial')
+pattern_exclude = paste(exclude, collapse='|')
+
 # load data for further processing.
 files_to_loop = dir('raw', pattern='baseline')
 number = 0
@@ -33,11 +37,11 @@ for (file in files_to_loop){  #
   abstract.data = excluded.abstracts = aucs = NULL # start with empty data sets
   for (k in 1:nrow(raw_pubmed)){ # loop through abstracts
     
-    # exclude meta-analysis based on title or abstract
-    meta1 = str_detect(raw_pubmed$title[k], 'meta.?analys(i|e)s')
-    meta2 = str_detect(raw_pubmed$abstract[k], 'meta.?analys(i|e)s')
-    if(meta1 == TRUE | meta2 == TRUE){
-      this.exclude = data.frame(pmid=raw_pubmed$pmid[k], date=raw_pubmed$date[k], type=raw_pubmed$type[k], reason='Meta-analysis', stringsAsFactors = FALSE)
+    # exclude based on title or abstract
+    exclude1 = str_detect(tolower(raw_pubmed$title[k]), pattern_exclude)
+    exclude2 = str_detect(tolower(raw_pubmed$abstract[k]), pattern_exclude)
+    if(exclude1 == TRUE | exclude2 == TRUE){
+      this.exclude = data.frame(pmid=raw_pubmed$pmid[k], date=raw_pubmed$date[k], type=raw_pubmed$type[k], reason='Excluded study type', stringsAsFactors = FALSE)
       excluded.abstracts = bind_rows(excluded.abstracts, this.exclude) 
       next # skip to next abstract
     }
