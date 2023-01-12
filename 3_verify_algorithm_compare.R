@@ -30,7 +30,7 @@ random_selection = read.xlsx(infile) %>%
   )
 
 ## part 2: run the random selections through the algorithm ##
-algorithm_data = NULL
+algorithm_data = fcounts = NULL
 for (k in 1:n_sample){
   results = process_abstract(random_selection, k = k) # the algorithm
   frame = data.frame(pmid = results$tframe$pmid, 
@@ -39,7 +39,8 @@ for (k in 1:n_sample){
                      AUC = NA)
   if(is.null(results$aframe) == FALSE){
     frame$AUC = paste(results$aframe$auc, collapse = ', ')
-  }
+    fcounts = bind_rows(fcounts, results$fcounts)
+3  }
   algorithm_data = bind_rows(algorithm_data, frame)
 }
 algorithm_data = select(algorithm_data, pmid, sample_size, AUC)
@@ -53,8 +54,8 @@ auc_compare = auc_numbers = NULL
 for (k in 1:n_sample){
   this_compare = to_compare[k,]
   algorithm = as.numeric(str_split(this_compare$AUC, pattern = ',')[[1]])
-  manual = as.numeric(str_split(this_compare$actual_AUC, pattern = ',')[[1]]) # causing some warning, need to figure out why
- # if(exists('last.warning') == TRUE){ 
+  manual = as.numeric(str_split(this_compare$actual_AUC, pattern = ',')[[1]]) # 
+ # if(exists('last.warning') == TRUE){  # looking at warnings
 #    cat(k, ', AUC = ', this_compare$actual_AUC, '\n')
 #    last.warning = NULL
 #  }
@@ -78,15 +79,15 @@ auc_compare = filter(auc_compare, !(is.na(auc.algorithm) & is.na(auc.manual))) #
 # differences per abstract - to here
 
 # Bland-Altman plot for numbers per abstract
-auc_numbers = mutate(auc_numbers,
+auc_numbers_compare = mutate(auc_numbers,
                      diff = n_algorithm - n_manual,
                      av = (n_algorithm + n_manual)/2)
 # limits of agreement
-loa = summarise(auc_numbers, 
+loa = summarise(auc_numbers_compare, 
                 lower = quantile(diff, 0.05),
                 upper = quantile(diff, 0.95))
 #
-aplot = ggplot(data = auc_numbers, aes(x = av, y = diff))+
+aplot = ggplot(data = auc_numbers_compare, aes(x = av, y = diff))+
   geom_hline(yintercept = 0, lty=2, col='pink')+
   geom_hline(yintercept = loa$lower, lty=2, col='red')+ # 90% limit of agreement
   geom_hline(yintercept = loa$upper, lty=2, col='red')+
@@ -97,11 +98,17 @@ aplot = ggplot(data = auc_numbers, aes(x = av, y = diff))+
 aplot
 
 # differences
-filter(auc_numbers, n_algorithm > n_manual)
-filter(auc_numbers, n_algorithm < n_manual)
+filter(auc_numbers_compare, n_algorithm > n_manual)
+filter(auc_numbers_compare, n_algorithm < n_manual)
 
 # compare sample size
 sample_size = mutate(to_compare, 
                   actual_sample_size = as.numeric(actual_sample_size))
 
+# check with parts of the algorithm are returning the most AUCs
+group_by(fcounts, source) %>%
+  summarise(total = sum(counts))
 
+## compare AUC numbers - to do
+
+## compare the distribution of included and excluded numbers - to do

@@ -2,6 +2,11 @@
 # useful functions for AUC work
 # December 2022
 
+## nrow that returns 0 for null
+nrow0 = function(x){
+  min(c(nrow(x),length(x)))
+}
+
 ## copied from ../outside.confidence.intervals/1_find_intervals.R ##
 # a) function used later to remove numbers after the word "per" as in '10 per 10,000' ...
 # ... also removes two numbers after range or IQR

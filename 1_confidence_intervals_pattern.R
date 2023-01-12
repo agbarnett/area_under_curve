@@ -11,10 +11,14 @@ levels = c(11,80,90,95,99) # currently common numbers, could replace with two in
 # 'uncertainty range' from PMID:28045934
 words = c('\\bcis?','\\bcris?','\\bcls?','\\buis?','\\burs?','\\bpis?',
           'confidence intervals?',
-          'confidence intervals? ?\\(ci\\)',
-          'confidence intervals? ?\\[ci\\]',
-          'posterior intervals?','credibility intervals?', 'prediction intervals?',
-          'ranges?','uncertainly intervals?', 'uncertainty ranges?')
+          'confidence intervals? ?\\(cis?\\)',
+          'confidence intervals? ?\\[cis?\\]',
+          'posterior intervals?',
+          'credibility intervals?', 
+          'prediction intervals?',
+          'ranges?',
+          'uncertainly intervals?', 
+          'uncertainty ranges?')
 operators = c('',':','=','\\(')
 # create all combinations
 ci.phrases = apply(expand.grid(words, operators), 1, paste, collapse=" ?")

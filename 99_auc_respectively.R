@@ -9,11 +9,10 @@ any_respect = str_detect(for_auc, pattern = respect_pattern)
 if(any_respect == TRUE){
   
   # find the sentence with "respectively"; use sentences with only full stop
-  sentences_only_full_stop = str_split(for_auc, pattern='\\. |\\.$')[[1]] # split into sentence
+  sentences_only_full_stop = str_split(for_auc, pattern='\\. |\\.$')[[1]] # split into sentence - using for_auc, not for_auc_clean
   sentences_only_full_stop = sentences_only_full_stop[sentences_only_full_stop!='']
   index = str_detect(sentences_only_full_stop, respect_pattern)
   sentences_with_respectively = sentences_only_full_stop[index]
-  
   # split on semi-colon for long lists
   sentences = unlist(str_split(sentences_with_respectively, pattern='(\\.|;) |\\.$')) # split into sentence
   sentences = sentences[sentences!='']
@@ -23,6 +22,10 @@ if(any_respect == TRUE){
   all_gaps = NULL; skipit = FALSE
   for (loop in 1:length(sentences)){ # had to do individual sentences
     
+    # must have statistics other than AUCs in sentence, otherwise skip and let other searches get the numbers
+    index = str_detect(sentences[loop], paste(sens_spec_words, collapse = '|'))
+    if (index == TRUE){skipit = TRUE}
+      
     ## count statistics
     n_stats = sum(str_count(sentences[loop], c(sens_spec_words, auc.words.no.breaks)))
     if(n_stats <= 1){next}
@@ -62,18 +65,21 @@ if(any_respect == TRUE){
         filter(is_auc) %>%
         pull(order)
       if(length(order)==0){next} # skip if no AUC
-      order = min(order) # if multiple matches
+      order = min(order) # if multiple matches then chose first - could change to both?
       
       # now select part of text with AUC
       auc_text = sentences_numbers[order]
       if(is.na(auc_text)==TRUE){next} # skip if no matching text
-      if(str_detect(auc_text, '\\%')==TRUE){next} # skip if match is to a percent
       
       # are there confidence intervals?
       ci1 = str_detect(auc_text, ci_auc_number)
       ci2 = str_detect(auc_text, '9(0|5|9)\\%.?(ci|conf)')
       any_ci = ci1 | ci2
       this_pattern = ifelse(any_ci, ci_auc_number, auc_number) # pattern depends on CIs
+      
+      # skip if match is to a percent ... why?
+      if(!any_ci & str_detect(auc_text, '\\%')==TRUE){next} 
+      
       #
       aucs4 = str_extract_all(auc_text, pattern = this_pattern)[[1]]
       aucs4 = str_replace_all(aucs4, '9(0|5|9)\\%', replacement = ' ') # get rid of CI as a number
@@ -88,16 +94,18 @@ if(any_respect == TRUE){
           auc_respectively = bind_rows(auc_respectively, this_frame)
         }
       }
-      if(length(as.numbers) < 3){
+      if(length(as.numbers) < 3 & length(as.numbers) > 0){
         this_frame = data.frame(type = 'mean', auc = aucs4) # keep stats as non-numbers for now
         auc_respectively = bind_rows(auc_respectively, this_frame)
       }
       if(length(as.numbers) > 0){
-        # now remove finds so they don't get entered again below
-        auc_text = str_replace_all(auc_text, '\\(', '\\\\(') # make brackets into brackets
-        auc_text = str_replace_all(auc_text, '\\)', '\\\\)')
-        for_auc_clean = str_remove_all(for_auc_clean, pattern = auc_text)
-        for_auc = str_remove_all(for_auc, pattern = auc_text)
+        # now remove numbers so they don't get entered again below
+        # is currently the last extraction, so does not matter as num
+        all_numbers = str_extract_all(sentences[loop], pattern = auc_number)[[1]] # could add '-' to end of auc_number in ending characters
+        all_numbers = paste(all_numbers, collapse='|')
+        all_numbers = str_replace_all(all_numbers, '\\(|\\)|\\[|\\]', '.') # first replace round/square brackets
+        for_auc_clean = str_remove_all(for_auc_clean, pattern = all_numbers) 
+        for_auc = str_remove_all(for_auc, pattern = all_numbers)
       }
     }
   } # end of skipit if

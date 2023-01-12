@@ -4,6 +4,7 @@
 # version using data that has been manually downloaded from ftp survey (because batch process using API was creating gaps)
 # October 2022
 load('../narrator/data/countries.RData') # for country affiliation
+source('0_my_pubmed_key_do_not_share.R')
 
 # import the XML file into R - takes a while
 very_raw_pubmed = table_articles_byAuth_adapted(pubmed_data = file, # from 99_table_articles_byAuth_adapted.R

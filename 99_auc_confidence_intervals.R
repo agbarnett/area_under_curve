@@ -3,6 +3,8 @@
 # December 2022
 
 ## part 1, pattern like 0.xx (0.xx-0.xx) with matching AUC-text from same sentence
+# not working, is sometimes flagging second two numbers
+
 just_numbers = str_locate_all(for_auc_clean, pattern = ci_auc_number)[[1]]
 auc_numbers = NULL
 if(nrow(just_numbers) > 0){ # if any CIs to look for
@@ -30,6 +32,7 @@ if(nrow(just_numbers) > 0){ # if any CIs to look for
       for (i in 1:nrow(just_numbers)){
         text_with_ci_long = str_sub(to_search, start = just_numbers[i,1], end = just_numbers[i,2])
         text_with_ci = str_replace_all(text_with_ci_long, pattern='[^0-9|\\.]', replacement=' ') # get rid of everything bar numbers
+        text_with_ci = str_replace(text_with_ci, ' 9(0|5|9) ', ' ') # remove CI text
         text_with_ci = str_squish(text_with_ci)
         numbers = str_split(text_with_ci, pattern = ' ')[[1]] # flag mean and CI
         if(length(numbers) == 3){ # 
@@ -38,7 +41,7 @@ if(nrow(just_numbers) > 0){ # if any CIs to look for
           if((all(as.numbers >= 0 & as.numbers <= 1)) & as.numbers[1]>as.numbers[2] & as.numbers[1]<as.numbers[3]){ # only keep if all three numbers are between 0 and 1, and if mean is within interval
             auc_numbers = bind_rows(auc_numbers, f)
             # now remove the text from the abstract so the numbers are not extracted again below
-            text_with_ci_long = str_replace_all(text_with_ci_long, pattern='\\(|\\[|\\)|\\]', replacement='.')
+            text_with_ci_long = str_replace_all(text_with_ci_long, pattern='\\(|\\[|\\)|\\]', replacement='.') # should this be \\.?
             sentences_yes = str_remove_all(sentences_yes, pattern=text_with_ci_long)
           }
         }
@@ -48,14 +51,14 @@ if(nrow(just_numbers) > 0){ # if any CIs to look for
   
   for_auc_clean_no = paste(c(sentences_no,'.'), collapse='. ', sep='')
   for_auc_clean_yes = paste(c(sentences_yes,'.') , collapse = '. ')
-  for_auc_clean = str_squish(paste(for_auc_clean_no, for_auc_clean_yes, sep='', collapse = '. ')) # update abstract
-  for_auc_clean = str_replace_all(for_auc_clean, pattern = '\\. \\.', '\\.') # remove double spaces
+  for_auc_clean = str_squish(paste('dummy start sentence. ', for_auc_clean_no, for_auc_clean_yes, sep='', collapse = '. ')) # update abstract
+  for_auc_clean = str_replace_all(for_auc_clean, pattern = '\\. \\.', '\\.') # remove double full-stops
 }
 
 
-## look for confidence intervals - part 2, with 'ci' (or similar) in wording ##
+## part 2, look for confidence intervals with 'ci' (or similar) in wording ##
 auc_numbers2 = NULL
-ci.places = str_locate_all(pattern = ci.pattern.spaces, string = for_auc_clean)[[1]] # all patterns, including annals - from 1_confidence_intervals_patterns.R
+ci.places = str_locate_all(string = for_auc_clean, pattern = ci.pattern.spaces)[[1]] # all patterns, including annals - from 1_confidence_intervals_patterns.R
 if(nrow(ci.places) > 0){ # if any CIs to look for
   
   for_auc_clean_new = for_auc_clean # temporary new abstract
@@ -63,23 +66,24 @@ if(nrow(ci.places) > 0){ # if any CIs to look for
   ## get text that has mean
   # find full-stops
   full_stops = str_locate_all(for_auc_clean, pattern='\\. |\\.$')[[1]][,1]
-  sentence_start = expand.grid(full_stops, ci.places[,1]) %>%
-    mutate(diff = Var2 - Var1) %>%
-    filter(diff > 0) %>%
-    group_by(Var2) %>%
+  sentence_start = expand.grid(full_stops, ci.places[,1]) %>% # from full stop to start of match
+    mutate(diff = Var2 - Var1) %>% # 
+    filter(diff > 0) %>% # must be positive from full-stop to start of match
+    group_by(Var2) %>% # by each match
     arrange(Var2, diff) %>%
     slice(1)
+
   # extract means
   mean.text = str_sub(for_auc_clean, sentence_start$Var1+2, sentence_start$Var2-1)   # from start of sentence up to CI phrase; assumes mean comes before CI
   
   ## get text that has CI
-  word.ends = str_count(str_sub(for_auc_clean, start=1, end=ci.places[,2]), ' ') # count the spaces from the start of the abstract to the END of the CI phrase
+  word.ends = str_count(str_sub(for_auc_clean, start = 1, end = ci.places[,2]), ' ') # count the spaces from the start of the abstract to the END of the CI phrase
   max.words = min(which(is.na(word(for_auc_clean, 1:2000)))) # count maximum number of words using 'word' function
   end = word.ends + words.to.search 
   end[end >= max.words] = -1 # if beyond max words, then go to last word (negative - counts backward from last word) ; found by 23490371
   # number of words to skip depends on type of interval (Annals-type with no interval level)
   # not sure if this is working with "[ci]"
-  plus = rep(1, nrow(ci.places))  # used to be '2'
+  plus = rep(1, nrow(ci.places))  # '1' used to be '2'
   # turned off - lost ci.places.annals
   #  if(nrow(ci.places.annals) > 0){
   #    aindex = ci.places[,1] %in% ci.places.annals[,1]
@@ -95,7 +99,7 @@ if(nrow(ci.places) > 0){ # if any CIs to look for
     if(any_auc_in_text ==FALSE){next}
     
     # remove any number after 'per' and any two numbers after 'range'; also split into words
-    ci.words = remove.per(str_split(ci.text[[i]], pattern=what.to.split)[[1]])
+    ci.words = remove.per(str_split(ci.text[[i]], pattern = what.to.split)[[1]])
     ci.words = ci.words[!ci.words %in% c('95','90','99')] # remove 95 for interval
     mean.words = remove.per(str_split(mean.text[[i]], pattern=what.to.split)[[1]])
     mean.words = mean.words[!mean.words %in% c('95','90','99')] # remove 95 for interval
@@ -119,6 +123,12 @@ if(nrow(ci.places) > 0){ # if any CIs to look for
       f = data.frame(type = c('mean','lower','upper'), auc=c(mean, cis))
       as.numbers = as.numeric(c(mean, cis))
       if((all(as.numbers >= 0 & as.numbers <= 1)) & as.numbers[1]>=as.numbers[2] & as.numbers[1]<=as.numbers[3]){ # only keep if all three numbers are between 0 and 1, and if mean is within interval
+        # do not add if intervals are a perfect match to an already included result
+        if(is.null(auc_numbers2)==FALSE){
+          already_included = inner_join(f, auc_numbers2, by=c('type','auc'))
+          if(nrow(already_included) == 3){f = NULL} # must be perfect match
+        }
+        #
         auc_numbers2 = bind_rows(auc_numbers2, f)
         # now remove the text from the abstract so the numbers are not extracted below
         for_auc_clean_new = str_remove_all(for_auc_clean_new, pattern=paste(c(mean, cis), collapse='|'))

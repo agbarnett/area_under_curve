@@ -1,6 +1,7 @@
 # 1_patterns.R
 # patterns and key constants, part copied from  ../outside.confidence.intervals/1_find_intervals.R
-# November 2022
+# see also 1_confidence_interval_pattern.R
+# December 2022
 
 # number of words to search before and after confidence interval; used 10 in Barnett and Wren paper
 words.to.search = 10 
@@ -10,20 +11,21 @@ words.to.search = 10
 what.to.split = "\\p{Pd}|\\/|-|,|=|\\%|,|;|:| |~|\\)|\\(|\\]|\\[|\\{|\\}" # whole load of characters for what to split numbers on 
 
 ## what is an AUC number, can start blank or zero. up to 4 decimal places, then a break; can also be 1; ( |0) allows for '0.6' and ' .6'
-auc_number = '((0| )\\.[0-9][0-9]?[0-9]?[0-9]?\\b|\\b1\\.0?0?0?\\b|\\b1)\\b'
+# special ending for numbers; needed because decimal place gets confused with full-stop, last two characters aims to capture full stop
+boundary_no_dot_start = "(?<=(,|;|:|=|\\(|^| |\\. ))" # look behind, so symbols do not get included
+boundary_no_dot_end = "(?=(,|;|:|\\)|\\%| |$|\\. |\\.$))" # look ahead
+#
+auc_number_no_start_end = '((0| )\\.[0-9][0-9]?[0-9]?[0-9]?|1\\.0?0?0?|1)'
+auc_number = paste(boundary_no_dot_start, auc_number_no_start_end, boundary_no_dot_end, sep='') # version with start and end
+
 # version with confidence intervals
-ci_auc_number = paste(auc_number, " ?(\\(|\\[|,|:|)?(9(0|5|9)\\% confidence interval|9(0|5|9)\\%.?ci)? ?", auc_number, "(.?.?.?.?)", auc_number, sep='')
-# general numbers
-boundary_no_dot = "(,|;|\\(|\\)|\\%| |$)"# needed because decimal place gets confused with full-stop
-general_number = paste('\\b([0-9][0-9]?[0-9]?[0-9]?\\.[0-9][0-9]?[0-9]?[0-9]?\\b|\\b[0-9]?[0-9]?[0-9]?[0-9])', boundary_no_dot, sep='')
-# as above, but must be a percentage
-general_number_percent = '\\b([0-9][0-9]?[0-9]?[0-9]?\\.[0-9][0-9]?[0-9]?[0-9]?\\%|\\b[0-9]?[0-9]?[0-9]?[0-9]\\%)'
-test_function = function(text, pattern){
-  result = str_extract_all(text, pattern)
-  cbind(text, as.character(result))
-}
-#test_function(text = c('1.0','1','0.11','2.22', '10% fox', '101.11','.xx',' .80','0.001', 'apples','crab2','33','0.22x'), auc_number)
-#test_function(text = c('1.0','1','0.11','2.22', '10% fox', '101.11','.xx',' .80','0.001', 'apples','crab2','33','0.22x'), general_number_percent)
+ci_auc_number = paste(boundary_no_dot_start, auc_number_no_start_end, " ?(\\(|\\[|,|:|)?(9(0|5|9)\\% confidence interval( (\\(\\[ci\\)\\])?)?|9(0|5|9)\\%.?ci)? ?", auc_number_no_start_end, "(.?.?.?.?)", auc_number_no_start_end, '(\\)|\\]|,|;)', sep='')
+# general numbers; including version with percent; and versions without start/end
+general_number_no_start_end = '([0-9][0-9]?[0-9]?[0-9]?\\.[0-9][0-9]?[0-9]?[0-9]?|[0-9]?[0-9]?[0-9]?[0-9])'
+general_number_percent_no_start_end = '([0-9][0-9]?[0-9]?[0-9]?\\.[0-9][0-9]?[0-9]?[0-9]?\\%|[0-9]?[0-9]?[0-9]?[0-9]\\%)'
+general_number = paste(boundary_no_dot_start, general_number_no_start_end, boundary_no_dot_end, sep='')
+general_number_percent = paste(boundary_no_dot_start, general_number_percent_no_start_end, boundary_no_dot_end, sep='')
+# see 98_testing.R
 
 ## Area under curve patterns, using dots to allow for hyphens; different words for AUC; AUROCs from 28813448
 auc.words.no.breaks = c(
@@ -33,15 +35,19 @@ auc.words.no.breaks = c(
   'aucrocc?s?',
   'aucc?s?',
   'rocc?s?',
-  'auc.roc',
+  'auc.rocs?',
+  'aucs?.\\(areas?.under.the.curve\\)',
+  'auc.values.\\(the.area.under.the.roc.curve\\)',
   'areas?.under.the.precision.recall.curves?',
-  'areas?.under.the.curves?( \\(aucs?\\))?', # with optional acronym
-  'areas?.under.curves?( \\(aucs?\\))?',
+  'areas?.under.the.curves?( (\\(|\\[)aucs?(\\)|\\]))?', # with optional acronym
+  'areas?.under.curves?( (\\(|\\[)aucs?(\\)|\\]))?',
+  'areas?.under.the.roc.curves?( (\\(|\\[)aurocs?(\\)|\\]))?',
   'receiver.operat[a-z]*',
+  'receiver.operating.characteristic( (\\(|\\[)rocs??(\\)|\\]))?',
+  'receiver.operating.characteristic.curves?( (\\(|\\[)rocs??(\\)|\\]))?',
   'c.index',
   'c.indices',
-  'c.statistics?',
-  'c.ind[a-z]*' # c-index, c-indices
+  'c.statistics?'
 )
 # now add breaks
 auc.words.no.breaks = auc.words.no.breaks[order(-nchar(auc.words.no.breaks))] # long to short
@@ -49,6 +55,8 @@ auc.words = paste('\\b', auc.words.no.breaks, '\\b', sep='')
 auc.pattern = paste(auc.words, collapse='|')
 
 ## patterns for AUC in sentences
+# words which can come straight after AUC-statistic:
+extra_words = '(statistics? |values? )?' # question after bracket end to include no extra words
 # link words/phrases
 link_words = c("were determined as",
                "was determined as",
@@ -62,10 +70,21 @@ link_words = c("were determined as",
                "are",
                "to",
                "of",
+               ", ",
                "=")
-opener = paste(rep(auc.words.no.breaks, each = length(link_words)), link_words, sep = " ") # all combinations of AUC and phrases
-sentence_pattern_aucs = paste(opener, auc_number,  ' in t?h?e? ?(training|test|validation|external)', sep='')
-sentence_pattern_aucs = paste(sentence_pattern_aucs, collapse = '|')
+link_words_extra = paste(extra_words, link_words, sep='')
+opener = paste(rep(auc.words.no.breaks, each = length(link_words_extra)), link_words_extra, sep = ".") # all combinations of AUC and phrases; use sep of dot to allow 'auc-value' etc
+numbers = c(paste('(', auc_number_no_start_end, ', ?', auc_number_no_start_end, ', ?', auc_number_no_start_end, ' ?and ?', auc_number_no_start_end, ')', sep=''), # lists
+            paste('(', auc_number_no_start_end, ', ?', auc_number_no_start_end, ' ?and ?', auc_number_no_start_end, ')', sep=''), # lists 
+            paste('(', auc_number_no_start_end, ' (\\(|\\[)', auc_number_no_start_end, ' ?(to|-) ?', auc_number_no_start_end, '(\\)|\\]) (and|or) ',
+                  auc_number_no_start_end, ' (\\(|\\[)', auc_number_no_start_end, ' ?(to|-) ?', auc_number_no_start_end, '(\\)|\\]))', sep=''), # two Cis
+            paste('(', auc_number_no_start_end, ' ?(and|to) ?', auc_number_no_start_end, ')', sep=''), # and
+            auc_number_no_start_end,
+            '1') 
+combs = apply(expand.grid(opener, numbers), 1, paste, collapse=" ?")
+combs = combs[order(-nchar(combs))] # long to short
+combs = paste(combs, boundary_no_dot_end, sep='') # must have end
+sentence_pattern_aucs = paste(combs, collapse='|')
 
 
 ## phrases that look like AUC but are other types of AUC (dots to allow hyphens)
@@ -78,6 +97,7 @@ to_remove = c('area.under.the.plasma.concentration.time.curve',
               'pharmacology',
               '\\bc.?max\\b',
               'area.under.the.time.concentration.curve',
+              'area.under.the.curve.in.range',
               'score.area.under.the.curve',
               'pain.relief.curve',
               'time.fev1.curve',
@@ -100,6 +120,9 @@ stats = c('p.?valu?e?s?',
           'positive likelihood ratios?( \\(plr\\))?', 
           'negative likelihood ratios?( \\(nlr\\))?',
           '\\bppv\\b', '\\bnpv\\b', '\\bplr\\b', '\\bnlr\\b',
+          'false positive rate( \\(fpr\\))?',
+          'false negative rate( \\(fpr\\))?',
+          '\\bfpr\\b', '\\bnfr\\b',
           '\\bratios?',
           'hazard ratios?( \\(hrs?\\))?',
           'diagnostic odds ratios?( \\(dors?\\))?',
@@ -138,14 +161,18 @@ stats = c('p.?valu?e?s?',
           'optimism',
           'youden',
           'accuracy',
+          '\\bbrier( score|statistic)?',
+          '\\bf1s?( score|statistic)?\\b',
           '\\bspec\\b', # abbreviations
           '\\bsens\\b')
 operations = c('((of )?&gt;|(of )?>|(of )?≥|(of )?&lt;|(of )?<|(of )?≤|=|(of )?less than|(of )?greater than|equals?( to)?|of|was|is|)') # include `|` for no operator
-numbers = c(paste('(', general_number, ',? ?.95% ?ci:? ', general_number, '.?.?.?.?', general_number, ')', sep=''), # CI
-            paste('(', general_number, ', ', general_number, ', ', general_number, ' and ', general_number, ')', sep=''), # lists
-            paste('(', general_number, ', ', general_number, ' and ', general_number, ')', sep=''), # lists 
-            paste('(', general_number, ' (and|to) ', general_number, ')', sep=''), # lists 
-            general_number, 
+numbers = c(paste('(', general_number_no_start_end, ',? ?.?95\\% ?ci:? ', general_number_no_start_end, '.?.?.?.?', general_number_no_start_end, ')', sep=''), # CI
+            paste('(', general_number_no_start_end, ', ?', general_number_no_start_end, ', ?', general_number_no_start_end, ' ?and ?', general_number_no_start_end, ')', sep=''), # lists
+            paste('(', general_number_no_start_end, ', ?', general_number_no_start_end, ' ?and ?', general_number_no_start_end, ')', sep=''), # lists 
+            paste('(', general_number_no_start_end, ' (\\(|\\[)', general_number_no_start_end, ' ?(to|-) ?', general_number_no_start_end, '(\\)|\\]) (and|or) ',
+                       general_number_no_start_end, ' (\\(|\\[)', general_number_no_start_end, ' ?(to|-) ?', general_number_no_start_end, '(\\)|\\]))', sep=''), # two Cis
+            paste('(', general_number_no_start_end, ' ?(and|to) ?', general_number_no_start_end, ')', sep=''), # and
+            general_number_no_start_end,
             '1') 
 # create all combinations
 one = apply(expand.grid(stats, operations), 1, paste, collapse=" ?")
@@ -192,11 +219,9 @@ sens_spec_patterns = paste(combs, collapse='|')
 # without numbers
 sens_spec_short = '\\bsensitiv|\\bspecific|\\bcorrelation|\\byouden|\\bbrier|\\bf1s?\\b'
 
-## thresholds for p-values, e.g., 30447463
-operators = c('>','greater than','&gt;')
-numbers = as.character(seq(0.5,0.95,0.05)) # round thresholds
-numbers = str_replace(numbers, '\\.', '\\\\.')  
-combs = apply(expand.grid(operators, numbers), 1, paste, collapse=" ?")
+## thresholds for p-values and other numbers, e.g., 30447463
+operators = c('>','≥','greater than','&gt;','<','≤','less than','&lt;')
+combs = apply(expand.grid(operators, general_number), 1, paste, collapse=" ?")
 combs = combs[order(-nchar(combs))] # long to short
 threshold_patterns = paste(combs, collapse='|')
 
@@ -218,22 +243,24 @@ numbers = c('\\d\\d?\\d?\\d?\\d?\\d?\\d?\\d?\\d?\\b','\\b\\d?\\d\\d,\\d\\d\\d\\b
 one = apply(expand.grid(words, operators), 1, paste, collapse=" ?", sep='')
 combs_before = apply(expand.grid(one, numbers), 1, paste, collapse=" ?", sep='')
 # b) words after number
-sample_size_words = c('\\bpatients\\b',
-                      '\\bsubjects\\b',
-                      '\\bparticipants\\b',
+sample_size_words = c('\\b(male|female )?patients\\b',
+                      '\\b(male|female )?cancer.patients\\b',
+                      '\\b(male|female )?subjects\\b',
+                      '\\b(male|female )?participants\\b',
                       '\\bindividuals\\b',
                       '\\bpersons\\b',
                       '\\bsamples\\b',
-                      '\\brespondents\\b',
-                      '\\bchildren\\b',
+                      '\\b(male|female )?respondents\\b',
+                      '\\b(male|female )?children\\b',
                       '\\bmen\\b',
                       '\\bwomen\\b',
                       '\\bgirls\\b',
                       '\\bboys\\b',
                       '\\bneonates\\b',
-                      '\\bcases\\b',
-                      '\\bcontrols\\b',
-                      '\\bmice\\b')
+                      '\\b(male|female )?cases\\b',
+                      '\\b(male|female )?controls\\b',
+                      '\\b(male|female )?rats\\b',
+                      '\\b(male|female )?mice\\b')
 operators = c('')
 one = apply(expand.grid(sample_size_words, operators), 1, paste, collapse="", sep='')
 combs_after = apply(expand.grid(numbers, one), 1, paste, collapse=" ?", sep='')

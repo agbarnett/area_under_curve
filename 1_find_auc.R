@@ -5,19 +5,21 @@
 library(stringr)
 library(dplyr)
 library(tidyr)
+library(purrr)
 library(words2number) # convert words to number, e.g. 'forty' = '40'
-source('99_main_function_abstract.R') # main function for abstracts
+source('99_main_function_abstract.R') # main function for extracting AUC statistics from abstracts
 source('99_functions.R') # 
 source('1_confidence_intervals_pattern.R')
 source('1_patterns.R') # text patterns for matching
-source('../narrator/98_key_not_sharing.R')
+#source('0_my_pubmed_key_do_not_share.R') # not needed here
 
-# studies to exclude based on title and abstract
-exclude = c('meta.?analys(i|e)s','pooled.?analys(i|e)s','tutorial')
+# abstracts to exclude based on title and abstract
+exclude = c('pharmacokinetics?','meta.?analys(i|e)s','pooled.?analys(i|e)s','tutorial')
 pattern_exclude = paste(exclude, collapse='|')
 
 # load data for further processing.
 files_to_loop = dir('raw', pattern='baseline')
+files_to_loop = rev(files_to_loop) # start at more recent files
 number = 0
 for (file in files_to_loop){  # 
   
