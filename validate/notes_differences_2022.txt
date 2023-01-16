@@ -35,34 +35,130 @@
 
 ### second round, after "respectively" and other refinements
 
+
+> source("U:/Research/Projects/ihbi/aushsi/aushsi_barnetta/meta.research/text.mining/AUC/3_verify_algorithm_compare.R", echo=TRUE)
+
+> # 3_verify_algorithm_compare.R
+> # verify the algorithm using a random selection from pubmed
+> # see 2_verify_algorithm_create.R for random selectio .... [TRUNCATED] 
+
+> library(tidyr)
+
+> library(purrr)
+
+> library(dplyr)
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+
+> library(stringr)
+
+> library(openxlsx) # for reading in Excel
+
+> # code needed to run the algorithm:
+> source('99_main_function_abstract.R')
+
+> source('99_functions.R')
+
+> source('1_patterns.R')
+
+> source('1_confidence_intervals_pattern.R')
+
+> # basics for validation:
+> year = '2022' # 2020, 2021 or 2022
+
+> n_sample = 100
+
+> ## part 1: read in results checked by hand
+> infile = paste("validate/AUC_mesh_", year, "_completed.xlsx", sep='') # year of search in file name
+
+> random_selection = read.xlsx(infile) %>%
++   select(pmid, abstract, actual_sample_size, actual_AUC) %>%
++   mutate(date = as.numeric(year), # just y .... [TRUNCATED] 
+
+> ## part 2: run the random selections through the algorithm ##
+> algorithm_data = fcounts = NULL
+
+> for (k in 1:n_sample){
++   results = process_abstract(random_selection, k = k) # the algorithm
++   frame = data.frame(pmid = results$tframe$pmid, 
++ .... [TRUNCATED] 
+Warning, non-numeric AUC for 35906804 
+  type                              auc
+1 mean area under the curve (auc) equal
+2 mean                            0.882
+Warning, non-numeric AUC for 35819161 
+     type                     auc
+1 percent aucs were 85.2%, 74.1%,
+2 percent                   71.8%
+Warning, non-numeric AUC for 35219226 
+  type       auc
+1 mean auc equal
+2 mean     0.732
+3 mean     0.551
+4 mean     0.892
+5 mean     0.717
+
+> algorithm_data = select(algorithm_data, pmid, sample_size, AUC)
+
+> ## part 3: merge hand-entered data with algorithm data and then compare 
+> to_compare = full_join(random_selection, algorithm_data, by='pmid') %>%
++ .... [TRUNCATED] 
+
+> # compare AUC
+> auc_compare = auc_numbers = NULL
+
+> for (k in 1:n_sample){
++   this_compare = to_compare[k,]
++   algorithm = as.numeric(str_split(this_compare$AUC, pattern = ',')[[1]])
++   manual = as .... [TRUNCATED] 
+
+> # Tidy up compare data
+> auc_compare = filter(auc_compare, !(is.na(auc.algorithm) & is.na(auc.manual))) # remove if both missing
+
+> # differences per abstract - to here
+> 
+> # Bland-Altman plot for numbers per abstract
+> auc_numbers_compare = mutate(auc_numbers,
++                 .... [TRUNCATED] 
+
+> # limits of agreement
+> loa = summarise(auc_numbers_compare, 
++                 lower = quantile(diff, 0.05),
++                 upper = quantile(dif .... [TRUNCATED] 
+
+> #
+> aplot = ggplot(data = auc_numbers_compare, aes(x = av, y = diff))+
++   geom_hline(yintercept = 0, lty=2, col='pink')+
++   geom_hline(yintercept  .... [TRUNCATED] 
+
+> aplot
+
 > # differences
 > filter(auc_numbers_compare, n_algorithm > n_manual)
       pmid n_algorithm n_manual diff   av
-1 35906804           4        1    3  2.5
-2 34181561           3        2    1  2.5
-3 34620707          36       33    3 34.5 # some ratios
-4 36400881           5        4    1  4.5
-5 34579510           2        1    1  1.5
-6 35219226           4        2    2  3.0
-7 35369570           7        5    2  6.0
-8 36418345           2        1    1  1.5
+1 35945782          12        4    8  8.0
+2 34620707          36       33    3 34.5 # some ratios
+3 34564946           8        6    2  7.0 # check again
 
 > filter(auc_numbers_compare, n_algorithm < n_manual)
        pmid n_algorithm n_manual diff   av
-1  35067220           4        6   -2  5.0
-2  35834466           1        2   -1  1.5
-3  33977829           5       21  -16 13.0 # tutorial
-4  35771385           0        1   -1  0.5
-5  35945782           0        4   -4  2.0
-6  35260368           0        2   -2  1.0
-7  35819161           2        3   -1  2.5
-8  34581296           2        4   -2  3.0
-9  34339778          19       24   -5 21.5
-10 34564946           3        6   -3  4.5
-11 34303553           2        3   -1  2.5
-12 35183915           2        3   -1  2.5
-13 35027588           6        7   -1  6.5
-14 35642719           4        6   -2  5.0
-15 35488007           0        6   -6  3.0
-16 34483226           2        4   -2  3.0
+1  35817268           1        2   -1  1.5 # fixed
+2  35067220           4        6   -2  5.0
+3  35834466           1        2   -1  1.5 # checked, has number just before text
+4  33977829           5       21  -16 13.0 # tutorial, since excluded
+5  35771385           0        1   -1  0.5 # checked, has number just before text
+6  35819161           1        3   -2  2.0 # add percents to numbers???
+7  34581296           2        4   -2  3.0 # checked
+8  34339778          19       24   -5 21.5
+9  35027588           5        7   -2  6.0 # checked
+10 34483226           2        4   -2  3.0 # checked
 

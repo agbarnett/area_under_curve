@@ -16,13 +16,19 @@ index[any_sens_spec_text] = FALSE
 if(sum(index)>0){ #
   other_sentences = sentences[!index]
   sentences = sentences[index]
-  sentences_with_numbers = str_detect(sentences, pattern = sentence_pattern_aucs)
-  sentences = sentences[sentences_with_numbers]
-  auc = unlist(str_extract_all(sentences, pattern = sentence_pattern_aucs))
+  auc = NULL
+  for (ind in 1:8){ # had to split because of the size of the search
+    sentences_with_numbers = str_detect(sentences, pattern = sentence_pattern_aucs[[ind]])
+    sentences = sentences[sentences_with_numbers]
+    this_auc = unlist(str_extract_all(sentences, pattern = sentence_pattern_aucs[[ind]]))
+    if(length(this_auc) > 0){
+      auc = c(auc, this_auc)
+    }
+  }
   if(length(auc) > 0){
     aucs2 = c(aucs2, auc)
     # now remove first finds so they don't get entered again below
-    to_remove = str_replace_all(auc_number, '\\(|\\)|\\[|\\]', '.') # first replace round/square brackets
+    to_remove = str_replace_all(auc_number, '\\\\[(]|\\\\[)]|\\\\[\\[]|\\\\[\\]]', '.') # first replace round/square brackets with any character
     # optional = could remove entire sentence
     for_auc = str_remove_all(for_auc, pattern = to_remove)
     for_auc_clean = str_remove_all(for_auc_clean, pattern = to_remove)
@@ -53,7 +59,7 @@ if(sum(index)>0){ #
   if(length(auc) > 0){
     aucs3 = c(aucs3, auc)
     # now remove first finds so they don't get entered again below
-    find_pattern = str_replace_all(find_pattern, '\\(|\\)|\\[|\\]', '.') # first replace round/square brackets
+    find_pattern =  str_replace_all(find_pattern, '\\\\[(]|\\\\[)]|\\\\[\\[]|\\\\[\\]]', '.') # first replace round/square brackets
     # optional = could remove entire sentence
     for_auc = str_remove_all(for_auc, pattern = find_pattern)
     for_auc_clean = str_remove_all(for_auc_clean, pattern = find_pattern)

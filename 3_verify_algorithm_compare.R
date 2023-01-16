@@ -1,7 +1,7 @@
 # 3_verify_algorithm_compare.R
 # verify the algorithm using a random selection from pubmed
 # see 2_verify_algorithm_create.R for random selection of pubmed data
-# December 2022
+# Jan 2023
 library(ggplot2)
 library(tidyr)
 library(purrr)
@@ -15,7 +15,7 @@ source('1_patterns.R')
 source('1_confidence_intervals_pattern.R')
 
 # basics for validation:
-year = '2022' # 2020, 2021 or 2022
+year = '2020' # 2020, 2021 or 2022
 n_sample = 100
 
 ## part 1: read in results checked by hand
@@ -40,7 +40,7 @@ for (k in 1:n_sample){
   if(is.null(results$aframe) == FALSE){
     frame$AUC = paste(results$aframe$auc, collapse = ', ')
     fcounts = bind_rows(fcounts, results$fcounts)
-3  }
+  }
   algorithm_data = bind_rows(algorithm_data, frame)
 }
 algorithm_data = select(algorithm_data, pmid, sample_size, AUC)
@@ -82,7 +82,7 @@ auc_compare = filter(auc_compare, !(is.na(auc.algorithm) & is.na(auc.manual))) #
 auc_numbers_compare = mutate(auc_numbers,
                      diff = n_algorithm - n_manual,
                      av = (n_algorithm + n_manual)/2)
-# limits of agreement
+# limits of agreement for numbers
 loa = summarise(auc_numbers_compare, 
                 lower = quantile(diff, 0.05),
                 upper = quantile(diff, 0.95))
@@ -102,13 +102,47 @@ filter(auc_numbers_compare, n_algorithm > n_manual)
 filter(auc_numbers_compare, n_algorithm < n_manual)
 
 # compare sample size
-sample_size = mutate(to_compare, 
-                  actual_sample_size = as.numeric(actual_sample_size))
+sample_size_compare = mutate(to_compare, 
+                  actual_sample_size = as.numeric(actual_sample_size),
+                  sdiff = sample_size - actual_sample_size)
 
 # check with parts of the algorithm are returning the most AUCs
 group_by(fcounts, source) %>%
   summarise(total = sum(counts))
 
-## compare AUC numbers - to do
+## compare AUC numbers - repeat from above?? 
+auc_compare = NULL
+for (k in 1:nrow(to_compare)){
+  estimated = as.numeric(str_split(to_compare[k,]$AUC, pattern=',')[[1]])
+  actual = as.numeric(str_split(to_compare[k,]$actual_AUC, pattern=',')[[1]])
+  same = NULL
+  if(length(intersect(estimated, actual)) > 0){
+    same = vintersect(estimated, actual) # DOES NOT WORK WHEN THERE IS NO OVERLAP
+  }
+  differences1 = vsetdiff(estimated, actual) # in estimated but not actual
+  differences2 = vsetdiff(actual, estimated) # in actual but not estimated
+  f1 = f2 = f3 = NULL
+  if(length(same) > 0){
+    f1 = data.frame(estimated = same, actual = same)
+  }
+  if(length(differences1) > 0){
+    f2 = data.frame(estimated = differences1, actual = NA)
+  }
+  if(length(differences2) > 0){
+    f3 = data.frame(estimated = NA, actual = differences2)
+  }
+  frame = bind_rows(f1, f2, f3)
+  frame$pmid = to_compare[k,]$pmid
+  auc_compare = bind_rows(auc_compare, frame)
+}
+auc_compare = mutate(auc_compare, na.total = is.na(estimated) + is.na(actual)) %>%
+  filter(na.total < 2) # remove rows where both missing
+# plot and include missing results
+library(naniar)
+ggplot(auc_compare, 
+       aes(x = estimated, 
+           y = actual)) + 
+  geom_miss_point()+
+  theme_bw()
 
 ## compare the distribution of included and excluded numbers - to do

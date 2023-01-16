@@ -11,7 +11,6 @@ source('99_main_function_abstract.R') # main function for extracting AUC statist
 source('99_functions.R') # 
 source('1_confidence_intervals_pattern.R')
 source('1_patterns.R') # text patterns for matching
-#source('0_my_pubmed_key_do_not_share.R') # not needed here
 
 # abstracts to exclude based on title and abstract
 exclude = c('pharmacokinetics?','meta.?analys(i|e)s','pooled.?analys(i|e)s','tutorial')
@@ -57,8 +56,7 @@ for (file in files_to_loop){  #
     if(abstract.empty==FALSE){
       n.words = str_count(raw_pubmed$abstract[k], ' ') # rough word count
       if(is.na(n.words) == TRUE){n.words = 0}
-      if(n.words <= 10 & raw_pubmed$type[k] == 'Published Erratum'){abstract.empty = TRUE} # short abstracts with errata are usually just a citation/note
-      if(n.words <= 10 & str_detect(string=raw_pubmed$abstract[k], pattern='This corrects the article')) {abstract.empty = TRUE} # alternative search for errata (in case they are listed as type 'journal article')
+      if(n.words <= 10){abstract.empty = TRUE} # short abstracts 
     }
     if(abstract.empty == TRUE){
       this.exclude = data.frame(pmid=raw_pubmed$pmid[k], date=raw_pubmed$date[k], type=raw_pubmed$type[k], reason='No abstract', stringsAsFactors = FALSE)
@@ -87,8 +85,3 @@ for (file in files_to_loop){  #
   
 }
 
-# create random checks - to do
-#output_file = 'checks.docx'
-#rmarkdown::render(input = '99_random_checks.Rmd', 
-#                  output_format='word_document',
-#                  output_file = output_file)

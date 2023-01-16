@@ -25,8 +25,8 @@ if(aucs_in == TRUE){
         if(length(sub_aucs) > 0){
           frame = data.frame(type = 'mean', auc = sub_aucs) # assuming these are all of type = mean
           aucs_sub = bind_rows(aucs_sub, frame)
-          # remove so numbers do not get entered again
-          sub_sentences = str_replace_all(sub_sentences, '\\(|\\)|\\[|\\]', '.') # first replace round/square brackets
+          # remove finds so numbers do not get entered again
+          sub_sentences = str_replace_all(sub_sentences, '[(]|[)]|[\\[]|[\\]]', '.') # first replace round/square brackets with any character - no slashes needed here as per 99_auc_pair.R
           for_auc_clean = str_remove_all(for_auc_clean, sub_sentences)
           for_auc_clean = str_replace_all(for_auc_clean, pattern='\\. \\.', replacement = '\\. ')
           for_auc_clean = str_squish(for_auc_clean)

@@ -17,6 +17,9 @@ abstract = str_replace_all(abstract, pattern=' \\)', '\\)')
 abstract = str_replace_all(abstract, pattern='sars.cov.2', 'sarscov2') # to avoid clash with number 2
 abstract = str_replace_all(abstract, pattern='coronavirus.disease.2019|covid.?19|COVID.?19', 'COVIDnineteen') # to avoid clash with number 19
 abstract = remove_commas(abstract) # remove commas in numbers
+abstract = str_remove_all(abstract, pattern='([A-Z]|[a-z])[0-9]-[0-9]') # remove numbers involved in hyphens with letters and numbers
+abstract = str_remove_all(abstract, pattern='([A-Z]|[a-z])-[0-9]') # remove numbers involved in hyphens with letters and numbers
+abstract = gsub("·", ".", abstract, perl = FALSE)  # replace `high` decimal places used by Lancet
 
 # remove from publication date onwards (only some abstracts)
 is_pub_date = str_locate(pattern = 'Expected final online publication date', string=abstract)
@@ -25,16 +28,16 @@ if(any(!is.na(is_pub_date))){
 }
 
 ## AUC is detected or not
-any_auc = str_detect(tolower(abstract), pattern = auc.pattern) # pattern from 1_other_patterns.R
+any_auc = str_detect(tolower(abstract), pattern = auc.pattern) # pattern from 1_patterns.R
 # remove false matches for other types of area under the curve (see http://onbiostatistics.blogspot.com/2012/10/using-area-under-curve-auc-as-clinical.html)
-find_remove = str_detect(tolower(abstract), pattern = to_remove) # pattern from 1_other_patterns.R
+find_remove = str_detect(tolower(abstract), pattern = to_remove) # pattern from 1_patterns.R
 any_auc = ifelse(find_remove==TRUE, FALSE, any_auc)
 
 ## get sample size
 source('99_sample_size.R', local = environment())
 
 # look for AUC statistic
-aucs = NULL
+aucs = fcounts = NULL
 if (any_auc == TRUE){
 
   # switch to lower case  
@@ -65,11 +68,11 @@ if (any_auc == TRUE){
   ## AUC as a confidence interval
   source('99_auc_confidence_intervals.R', local = environment())
 
-  ## AUC as a range/pair
+  ## AUC as a range/pair, also gets nearby numbers
   source('99_auc_pair.R', local = environment())
 
-  ## AUC from nearby numbers
-  source('99_auc_next_numbers.R', local = environment())
+  ## AUC from nearby numbers - not needed, done by 99_auc_pair.R
+  #source('99_auc_next_numbers.R', local = environment())
 
   ## AUC as a percent - using nearby words
   source('99_auc_percent.R', local = environment())
@@ -83,22 +86,23 @@ if (any_auc == TRUE){
   ## combine all sources of AUCs
   aucs = bind_rows(auc_numbers, # 99_auc_confidence_intervals.R
                    auc_numbers2, # 99_auc_confidence_intervals.R
+                   auc_numbers_percent, # 99_auc_confidence_intervals.R
                    aucs1_range_split, # 99_auc_pair.R
+                   aucs1_range_split_percent, # 99_auc_pair.R
                    aucs1_split, # 99_auc_pair.R
-                   aucs2, # 99_auc_next_numbers.R
-                   aucs3, # 99_auc_next_numbers.R
+                   #aucs2, # 99_auc_next_numbers.R
+                   #aucs3, # 99_auc_next_numbers.R
                    aucs_percent, 
                    aucs_sub, # 99_auc_nearby_statistics.R 
                    auc_respectively) # 99_auc_respectively.R
-  fcounts = NULL
   if(nrow(aucs) > 0){
-    #
+    # final processing of AUC statistics
     aucs_char = filter(aucs, !is.na(auc))
     aucs = mutate(aucs_char, 
              auc = str_remove_all(auc, '[^0-9|\\.]'), # remove text
              digits = str_count(str_remove(auc, '^0'), '[0-9]'), # count decimal places ...
              auc = as.numeric(auc), # ... can now convert to number
-             auc = ifelse(type == 'percent', auc/100, auc))  # convert percents
+             auc = ifelse(str_detect(type, 'percent'), auc/100, auc))  # convert percentages
     # find non-numeric results
     f = filter(aucs, is.na(auc))
     if(nrow(f) > 0){
@@ -108,14 +112,16 @@ if (any_auc == TRUE){
     # count the number of statistics from each source - useful for checking the most important functions
     fcounts = c(nrow0(auc_numbers), # 99_auc_confidence_intervals.R
                 nrow0(auc_numbers2), # 99_auc_confidence_intervals.R
+                nrow0(auc_numbers_percent), # 99_auc_confidence_intervals.R
                 nrow0(aucs1_range_split), # 99_auc_pair.R
+                nrow0(aucs1_range_split_percent), # 99_auc_pair.R
                 nrow0(aucs1_split), # 99_auc_pair.R
-                nrow0(aucs2), # 99_auc_next_numbers.R
-                nrow0(aucs3), # 99_auc_next_numbers.R
+                #nrow0(aucs2), # 99_auc_next_numbers.R
+                #nrow0(aucs3), # 99_auc_next_numbers.R
                 nrow0(aucs_percent), 
                 nrow0(aucs_sub), # 99_auc_nearby_statistics.R 
                 nrow0(auc_respectively))
-    fnames = c('auc_numbers','auc_numbers2','aucs1_range_split','aucs1_split','aucs2','aucs3','aucs_percent','aucs_sub','auc_respectively')
+    fnames = c('auc_numbers','auc_numbers2','auc_numbers_percent','aucs1_range_split','aucs1_range_split_percent','aucs1_split','aucs_percent','aucs_sub','auc_respectively')
     fcounts = data.frame(pmid = indata$pmid[k], source = fnames, counts = fcounts)
   }
 }

@@ -24,7 +24,7 @@ if(any_respect == TRUE){
     
     # must have statistics other than AUCs in sentence, otherwise skip and let other searches get the numbers
     index = str_detect(sentences[loop], paste(sens_spec_words, collapse = '|'))
-    if (index == TRUE){skipit = TRUE}
+    if (index == FALSE){skipit = TRUE} # changed to FALSE
       
     ## count statistics
     n_stats = sum(str_count(sentences[loop], c(sens_spec_words, auc.words.no.breaks)))
@@ -103,7 +103,7 @@ if(any_respect == TRUE){
         # is currently the last extraction, so does not matter as num
         all_numbers = str_extract_all(sentences[loop], pattern = auc_number)[[1]] # could add '-' to end of auc_number in ending characters
         all_numbers = paste(all_numbers, collapse='|')
-        all_numbers = str_replace_all(all_numbers, '\\(|\\)|\\[|\\]', '.') # first replace round/square brackets
+        all_numbers = str_replace_all(all_numbers, '[(]|[)]|[\\[]|[\\]]', '.') # first replace round/square brackets with any character - no slashes needed here as per 99_auc_pair.R
         for_auc_clean = str_remove_all(for_auc_clean, pattern = all_numbers) 
         for_auc = str_remove_all(for_auc, pattern = all_numbers)
       }

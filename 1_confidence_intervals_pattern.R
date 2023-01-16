@@ -19,7 +19,7 @@ words = c('\\bcis?','\\bcris?','\\bcls?','\\buis?','\\burs?','\\bpis?',
           'ranges?',
           'uncertainly intervals?', 
           'uncertainty ranges?')
-operators = c('',':','=','\\(')
+operators = c('', ':', ',', '=', '\\(') # added comma, e.g "AUC 0.88; 95% CI, 0.80-0.96"
 # create all combinations
 ci.phrases = apply(expand.grid(words, operators), 1, paste, collapse=" ?")
 ci.phrases = ci.phrases[order(-nchar(ci.phrases))] # long to short

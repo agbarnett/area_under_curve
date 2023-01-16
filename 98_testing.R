@@ -46,3 +46,19 @@ double_ci = paste(general_number_no_start_end, ' (\\(|\\[)', general_number_no_s
 pattern = paste(stat, operations, double_ci, collapse= ' ?')
 str_extract_all(text, pattern)
 str_extract_all(text, statistics_patterns)
+
+## plus/minus
+test = c('10 +/- 1', '10 ± 0.22', '10 ± 22.22, apple', '10 ± 1.')
+test_function(test, plus_minus_patterns)
+
+## correlations
+test = c('0.88','correlation 0.2222','correlation = 0.9. ','correlation > 0.7','rho=.1','rho = 0.x','rho=0.444','kendall: 0.22', 'rho = 1, kappa=0.2')
+test_function(test, correlation_patterns)
+
+## thresholds
+test = c('p < 0.05','p<0.05','p< 0.10, plus','p = 0.05','adrian > tony', '0.44,')
+test_function(test, threshold_patterns)
+
+## statistics patterns
+test = c('brier score = 0.4','hopeless 2 text','chi-squared = 0.22','odds ratio')
+test_function(test, statistics_patterns)

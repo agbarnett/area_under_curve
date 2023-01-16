@@ -4,7 +4,11 @@
 
 ## nrow that returns 0 for null
 nrow0 = function(x){
-  min(c(nrow(x),length(x)))
+  n = nrow(x)
+  if(is.null(n)){
+    n = length(x)
+  }
+  return(n)
 }
 
 ## copied from ../outside.confidence.intervals/1_find_intervals.R ##
@@ -58,7 +62,7 @@ remove_commas = function(in_text){
   return(in_text)
 }
 
-## remove other statistics from the same sentence
+## remove other statistics from the same sentence, used by 99_auc_confidence_intervals.R
 remove_other_stats = function(in_sentences){
   # vector of patterns, including AUC (desired) and others (not desired)
   stats_pattern = c('auc|auroc|area under curve',
