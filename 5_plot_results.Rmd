@@ -1,0 +1,244 @@
+---
+title: "Plots for AUC statistics"
+author: "Adrian Barnett"
+date: "2023-02-10"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE, error=FALSE, comment='', dpi=400)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(splines) # for smooth
+# graphics
+library(ggplot2)
+library(gridExtra)
+g.theme = theme_bw() + theme(panel.grid.minor = element_blank())
+type_colours = c("burlywood2", "dodgerblue", "goldenrod4", "firebrick2")
+
+# get the data
+load('data/analysis_ready.RData') # from 4_combine_results.R
+
+# breaks for histograms
+breaks = seq(0, 1.01, 0.01) # up to 1.01 to include 1
+# which bars to colour
+colour = c(0.7, 0.8, 0.9, 1)
+# x-axis
+x.breaks = c(0, seq(0.5,1,0.1))
+minor_breaks = seq(0.05,0.95,0.1)
+# lower limit for plots
+lower_auc_plot = 0.48
+```
+
+## Histogram
+
+The plot below shows a histogram of all AUC results that were a "mean" or "pair" (so the confidence interval limits are not shown). We restricted the results to those with two or more digits after the decimal place to avoid spikes appearing due to rounding.
+
+The results are binned using a (lower, upper] limit. For example, (0.80, 0.81] is $>$ 0.80 and $\leq$ 0.81.
+
+```{r}
+# function to group AUCs into bins
+my_bin = function(x, digits){
+  mult = 10^digits
+  #y = floor(x*mult)/mult # works as [lower, upper)
+  y = ceiling(x*mult)/mult # works as (lower, upper], better because of 1
+  return(y)
+}
+
+### create the data for the rounded histogram
+for_histo = filter(results, 
+                   (digits > 1 | auc==1), # avoid spikes due to rounding, include all 1's
+                   !str_detect(type, 'diff|lower|upper')) %>%
+  mutate(binned = my_bin(auc, digits = 2)) %>% # from lower limit up to upper limit: [lower,upper)
+  group_by(binned) %>%
+  tally() %>%
+  ungroup() %>%
+  mutate(fill = ifelse(binned %in% colour, 1, 2))
+
+# smooth Poisson model
+df = 4
+model = glm(n ~ ns(binned, df = df), data = for_histo, family=poisson())
+f = fitted(model)
+for_histo = cbind(for_histo, f) %>%
+  mutate(residual = n - f,
+         group = 1) %>% # to avoid separate dotted lines by fill
+  arrange(binned)
+
+# histogram
+rounded = ggplot(data = for_histo, aes(x = binned, y = n, fill = factor(fill), group = group))+
+  geom_bar(stat='identity', col='grey22', size=0.1)+ # size for thinner lines around bars
+  geom_line(data = for_histo, aes(x=binned, y=f, group = group), lty=2)+
+  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
+  scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
+                     labels = x.breaks,
+                     expand=c(0.01,0))+
+  theme_bw()+ # keep minor grid lines
+  xlab('AUC')+
+  ylab('Frequency')+
+  coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
+  theme(legend.position = 'none')
+rounded
+# export
+jpeg('figures/histogram.jpg', width=5, height=4, units='in', res=500)
+print(rounded)
+invisible(dev.off())
+```
+
+The dotted line shows a smooth natural spline with `r df` degrees of freedom fitted to the counts in each bin.
+
+#### Residual plot
+
+The plot below is the residuals from the smooth fit to the distribution.
+
+```{r}
+residual = ggplot(data = for_histo, aes(x = binned, y = residual, fill = factor(fill)))+
+  geom_bar(stat='identity', col='grey22', size=0.1)+
+  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
+  scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
+                     labels = x.breaks,
+                     expand=c(0.01,0))+
+  theme_bw()+ # keep minor grid lines
+  xlab('AUC')+
+  ylab('Residual (observed - expected)')+
+  coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
+  theme(legend.position = 'none')
+residual
+```
+
+
+##### Combined plot
+
+```{r combined, fig.height = 8, fig.width = 7}
+rounded = rounded + ggtitle('Histogram')
+residual = residual + ggtitle('Residual')
+grid.arrange(rounded, residual, nrow = 2, heights=c(1,0.8))
+# export
+jpeg('figures/histogram_residuals.jpg', width=5, height=8, units='in', res=500)
+grid.arrange(rounded, residual, nrow = 2, heights=c(1,0.8))
+invisible(dev.off())
+```
+
+## Largest per abstract
+
+The histogram below is restricted to the largest AUC statistic per abstract. We only use the "mean" and "pair" types.
+
+```{r largest}
+# largest per abstract
+largest = group_by(results, pmid) %>%
+  filter(digits > 1, # avoid spikes due to rounding,
+         !str_detect(type, 'diff|lower|upper')) %>%
+  arrange(pmid, desc(auc)) %>%
+  slice(1) %>% # largest per abstract
+  ungroup()
+### rounded histogram
+for_histo = filter(largest, 
+                   (digits > 1 | auc==1), # avoid spikes due to rounding
+                   !str_detect(type, 'diff|lower|upper')) %>%
+  mutate(binned = my_bin(auc, digits = 2)) %>% # from lower limit up to upper limit: [lower,upper)
+  group_by(binned) %>%
+  tally() %>%
+  ungroup() %>%
+  mutate(fill = ifelse(binned %in% colour, 1, 2))
+# plot
+rounded_largest = ggplot(data = for_histo, aes(x=binned, y=n, fill=factor(fill)))+
+  geom_bar(stat='identity', col='grey22', size=0.1)+ # size for thinner lines around bars
+  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
+  scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
+                     labels = x.breaks,
+                     expand=c(0.01,0))+
+  theme_bw()+ # keep minor grid lines
+  xlab('AUC')+
+  ylab('Frequency')+
+  coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
+  theme(legend.position = 'none')
+rounded_largest
+# export
+jpeg('figures/histogram_largest.jpg', width=5, height=4, units='in', res=500)
+print(rounded_largest)
+invisible(dev.off())
+```
+
+## Focus on 0.99 to 1
+
+```{r include=FALSE}
+detailed_colour = c(0.7,0.71,0.72)
+spike = 0.7
+lower = spike - 0.01
+upper = spike + 0.02 + 0.001
+detailed_breaks = seq(lower, upper, 0.001) # up to 1.01 to include 1
+detailed_colour = seq(lower, upper, by = 0.005)
+### rounded histogram
+for_histo = filter(results,
+                   digits > 1, # avoid spikes due to rounding
+                   !str_detect(type, 'diff|lower|upper'),
+                   auc >= min(detailed_breaks), # just within detailed window
+                   auc <= max(detailed_breaks)) %>%
+  mutate(binned = my_bin(auc, digits = 3)) %>%
+  group_by(binned) %>% 
+  tally() %>% 
+  ungroup() %>%
+  mutate(fill = ifelse(binned %in% detailed_colour, 1, 2))
+# plot
+rounded_detailed = ggplot(data = for_histo, aes(x=binned, y=n, fill=factor(fill)))+
+  geom_bar(stat='identity', col='grey22')+
+  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
+  scale_x_continuous(breaks = detailed_breaks + (0.001)/2, # nudge breaks to top of bar
+                     labels = detailed_breaks,
+                     expand=c(0.01,0))+
+  theme_bw()+ # keep minor grid lines
+  theme(axis.text.x = element_text(angle=45, hjust=1))+ # format to prevent dropped zeros, to do
+  xlab('AUC')+
+  ylab('Frequency')+
+  theme(legend.position = 'none')
+rounded_detailed
+
+# export
+filename = paste('figures/histogram_detailed_',spike, '.jpg', sep='')
+jpeg(filename, width=5, height=4, units='in', res=500)
+print(rounded_detailed)
+invisible(dev.off())
+
+```
+
+## Cumulative plot
+
+The advantage of a cumulative plot is that we do not need to select bins.
+
+```{r cumulative}
+to_plot = filter(results, !str_detect(type, 'diff'))
+cplot = ggplot(data = to_plot, aes(x = auc, col = type)) +
+  stat_ecdf(geom = "step", size=1.05) +
+#  facet_wrap(~digits)+
+  scale_colour_manual('Type', values = type_colours)+
+  ylab('Cumulative proportion')+
+  xlab('AUC')+
+  scale_x_continuous(breaks = seq(0,1,0.1), expand=c(0.01,0))+
+  g.theme+
+  theme(legend.position = 'top')+
+  coord_cartesian(xlim=c(lower_auc_plot, 1))
+cplot
+jpeg('figures/cumulative.jpg', width=5, height=4, units='in', res=500)
+print(cplot)
+invisible(dev.off())
+```
+
+#### Cumulative plot for largest per abstract
+
+```{r cumulative_largest}
+cplot_largest = ggplot(data = largest, aes(x = auc)) +
+  stat_ecdf(geom = "step", size=1.05) +
+#  facet_wrap(~digits)+
+  ylab('Cumulative proportion')+
+  xlab('AUC')+
+  scale_x_continuous(breaks = seq(0,1,0.1), expand=c(0.01,0))+ # expand to avoid extension after 1
+  g.theme+
+  theme(legend.position = 'top')+
+  coord_cartesian(xlim=c(lower_auc_plot, 1))
+cplot_largest
+jpeg('figures/cumulative_largest.jpg', width=5, height=4, units='in', res=500)
+print(cplot_largest)
+invisible(dev.off())
+```
+
+This plot combines the "mean" and "pair" types.

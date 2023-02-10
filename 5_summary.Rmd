@@ -1,0 +1,259 @@
+---
+title: "Summary tables and plots"
+author: "Adrian Barnett"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE, error=FALSE, comment='', dpi=400)
+options(width=1000) # Wide pages
+options(scipen=999) # avoid scientific presentation
+#
+library(ggplot2)
+g.theme = theme_bw() + theme(panel.grid.minor = element_blank())
+library(gridExtra)
+library(flextable)
+library(stringr)
+library(dplyr)
+library(broom)
+library(modelbased) # for contrasts
+
+# get the data
+load('data/analysis_ready.RData') # from 4_combine_results.R
+# add year to abstracts
+abstracts = mutate(abstracts, year = as.numeric(format(date, '%Y'))) 
+# add year to results
+with_year = select(abstracts, pmid, year) %>%
+  right_join(results, by='pmid') %>%
+  mutate(yearc = year - 2000) # centre year for regression model
+```
+
+## Exclusions
+
+Flow chart of excluded abstracts (to do).
+
+```{r exclude}
+tab = group_by(excluded, reason) %>%
+  tally()
+ftab = flextable(tab) %>%
+  theme_box() %>%
+  autofit() 
+ftab
+```
+
+## Abstracts including an AUC-statistic over time
+
+```{r, fig.width=7}
+for_plot = group_by(abstracts, year) %>%
+  summarise(n = n(),
+            million = n / 10^6, # per million
+            r = sum(any_auc),
+            p = r / n) %>%
+  ungroup()
+#
+tplot1 = ggplot(data=for_plot, aes(x = year, y = p))+
+  geom_line(size=1.05, col='dodgerblue')+
+  g.theme+
+  xlab('Year')+
+  ylab('Proportion of abstracts with an AUC statistic')+
+  coord_cartesian(xlim=c(1955, NA))+
+  ggtitle('Proportion')
+tplot2 = ggplot(data=for_plot, aes(x = year, y = million))+
+  geom_line(size=1.05, col='dark red')+
+  g.theme+
+  xlab('Year')+
+  ylab('Number of abstracts with an AUC statistic (millions)')+
+  coord_cartesian(xlim=c(1955, NA))+
+  ggtitle('Number')
+grid.arrange(tplot2, tplot1, ncol=2)
+# for text
+first = filter(abstracts, any_auc==TRUE) %>%
+  arrange(date) %>%
+  slice(1)
+```
+
+The plots shows the number and proportion of abstracts over time with at least one AUC statistic.
+
+## Frequency table of statistics types
+
+```{r}
+tab = filter(results, type != 'lower') %>% # just mirrors upper
+  group_by(type) %>%
+  tally() %>%
+  ungroup() %>%
+  arrange(-n) %>%
+  mutate(
+    total = sum(n),
+    perc = round(100 * n / total),
+    cell = paste(format(n, big.mark=','), ' (', round(perc), ')', sep=''),
+    type = ifelse(type == 'upper', 'confidence interval', type)) %>%
+  select(type, cell) %>%
+  rename('N (%)' = 'cell')
+ftab = flextable(tab) %>%
+  theme_box() %>%
+  autofit() %>%
+  merge_v(j=1)
+ftab
+```
+
+The table shows the number and percentage of AUC statistics by their presentation. 
+
+## Number of AUCs per abstract
+
+In this section we restrict to abstracts with at least one AUC statistic and examine the number of AUC statistics per abstract.
+
+#### Table
+
+```{r}
+tab_type = group_by(results, pmid, type) %>%
+  tally() %>%
+  ungroup() 
+tab = group_by(results, pmid) %>%
+  tally() %>%
+  ungroup() 
+stats = summarise(tab, 
+                  min = min(n),
+                  q1 = quantile(n, 0.25),
+                  median = median(n),
+                  q3 = quantile(n, 0.75),
+                  max = max(n))
+ftab = flextable(stats) %>%
+  theme_box() %>%
+  autofit()
+ftab
+```
+
+#### Histograms of the number of AUC statistics
+
+```{r}
+hplot = ggplot(data = tab, aes(x=n))+
+  geom_bar()+
+  g.theme+
+  xlab('Number of AUC statistics per abstract')+
+  ylab('Frequency')
+hplot
+```
+
+```{r}
+tab_type = filter(tab_type, type != 'lower') %>%
+  mutate(type = ifelse(type=='upper', 'ci', type))
+hplot = ggplot(data = tab_type, aes(x=n))+
+  geom_bar()+
+  g.theme+
+  xlab('Number of AUC statistics per abstract')+
+  ylab('Frequency')+
+  facet_wrap(~type, scales='free')
+hplot
+```
+
+There's a strong positive skew, with most abstracts giving a few AUC-statistics, whilst a small number of abstracts presented many statistics.
+
+## Use of confidence intervals over time
+
+To do.
+
+## Width of confidence intervals over time
+
+```{r trend_ci_width}
+### NOT WORKING
+#
+to_plot = filter(with_year, type == 'diff') %>%
+  group_by(year) %>%
+  summarise(n = n(),
+            mean = mean(diff)) %>%
+  ungroup() %>%
+  filter(n >= 50) # minimum sample size
+tplot = ggplot(data = to_plot, aes(x = year, y = mean))+
+  geom_line(size = 1.05)+
+  ylab('Confidence interval width')+
+  xlab('Year')+
+  g.theme
+tplot
+```
+
+We only show years with at least 50 statistics.
+
+We include all confidence intervals and did not record the percentage level of the confidence interval as we assume that almost all intervals were 95% intervals.
+
+*WAITING ON DIFFERENCE BEING ADDED*.
+
+## Average AUC statistics over time
+
+```{r trend_auc}
+#
+to_plot = filter(with_year, type !='diff') %>%
+  group_by(year, type) %>%
+  summarise(n = n(),
+            mean = mean(auc)) %>%
+  ungroup() %>%
+  filter(n >= 50) # minimum sample size
+tplot = ggplot(data = to_plot, aes(x = year, y = mean, col = type))+
+  geom_line(size = 1.05)+
+  ylab('Area under curve')+
+  xlab('Year')+
+  g.theme
+tplot
+```
+
+We only show years with at least 50 statistics.
+
+The last 20 years have shown no clear rise in the average AUC statistic.
+
+#### Regression model of trend over time
+
+```{r}
+# trend model
+tmodel = glm(auc ~ yearc + type + yearc:type, data = filter(with_year, type!='diff'))
+ests = tidy(tmodel, conf.int = 0.95) %>%
+  select(term, estimate, conf.low, conf.high) %>%
+  mutate(term = str_replace(term, 'type', 'type = '),
+         term = str_replace(term, ':', ' x '),
+         term = str_replace(term, 'yearc', 'year'))
+# add table
+ftab = flextable(ests) %>%
+  theme_box() %>%
+  autofit() %>%
+  colformat_double(j=2:4, digits=4)
+ftab
+```
+
+The reference category for "type" is a lower confidence interval. The intercept is the year 2000.
+
+
+
+### Residual histogram
+
+```{r}
+with_year = mutate(with_year,
+                   res = resid(tmodel))
+hplot = ggplot(data = with_year, aes(x=res))+
+  geom_histogram(fill='skyblue', col='grey77')+
+  g.theme+
+  facet_wrap(~type, scales='free')+
+  xlab('Residual')
+hplot
+```
+
+## Number of AUC statistics per abstract over time
+
+```{r}
+stats = filter(with_year, type %in% c('mean','lower')) %>%
+  group_by(pmid, type, year) %>%
+  tally()
+stats2 = group_by(stats, year, type) %>%
+  summarise(mean = mean(n)) %>%
+  ungroup() %>%
+  mutate(type = ifelse(type == 'lower', 'confidence interval', type))
+tplot = ggplot(data = stats2, aes(x = year, y = mean, group = type, col = type))+
+  geom_line(size = 1.05)+
+  geom_smooth(size=1.05)+
+  ylab('Number of AUC statistics per abstract')+
+  xlab('Year')+
+  scale_y_continuous(limits=c(0, NA))+
+  g.theme+
+  theme(legend.position = c(0.75,0.15))
+tplot
+```
+
+The plot is just for means and confidence intervals. The numbers of both statistics have increased over time. The plot shows the yearly means and a smoothed estimate of the trend.

@@ -14,7 +14,7 @@ if(nrow(just_numbers) > 0){ # if any CIs to look for
   
   # which sentences have AUC patterns?
   index = str_detect(sentences, pattern = auc.pattern)
-  not_index = str_detect(sentences, pattern = sens_spec_short) # do not include sentences that have sensitivity, specificity, etc
+  not_index = str_detect(sentences, pattern = sens_spec_short) # using "not clean" version; do not include sentences that have sensitivity, specificity, etc
   # for 'respectively'-style statistics
   if(any(not_index) == TRUE){
     sentences = remove_other_stats(sentences) # blank the other statistics
@@ -38,8 +38,12 @@ if(nrow(just_numbers) > 0){ # if any CIs to look for
         if(length(numbers) == 3){ # 
           f = data.frame(type = c('mean','lower','upper'), auc=numbers)
           as.numbers = as.numeric(numbers)
+          as.numbers[is.na(as.numbers)] = -99 # needed for rare typos
           if((all(as.numbers >= 0 & as.numbers <= 1)) & as.numbers[1]>=as.numbers[2] & as.numbers[1]<=as.numbers[3]){ # only keep if all three numbers are between 0 and 1, and if mean is within interval
-            auc_numbers = bind_rows(auc_numbers, f)
+            # add interval difference
+            diff = make_diff(as.numbers) # function to extract largest CI width
+            f_diff = data.frame(type = 'diff', auc = diff) # upper minus lower, must be a character for now
+            auc_numbers = bind_rows(auc_numbers, f, f_diff)
             # now remove the text from the abstract so the numbers are not extracted again below
             text_with_ci_long = str_replace_all(text_with_ci_long, pattern='\\(|\\[|\\)|\\]', replacement='.') # should this be \\.?
             sentences_yes = str_remove_all(sentences_yes, pattern=text_with_ci_long)
@@ -48,27 +52,35 @@ if(nrow(just_numbers) > 0){ # if any CIs to look for
       }
     }# end of nrow > 0 if
   
-    for_auc_clean_no = paste(c(sentences_no,'.'), collapse='. ', sep='')
-    for_auc_clean_yes = paste(c(sentences_yes,'.') , collapse = '. ')
+    # 
+    for_auc_clean_no = paste(c(sentences_no,'. '), collapse='. ', sep='')
+    for_auc_clean_yes = paste(c(sentences_yes,'. ') , collapse = '. ')
     for_auc_clean = str_squish(paste('dummy start sentence. ', for_auc_clean_no, for_auc_clean_yes, sep='', collapse = '. ')) # update abstract
     for_auc_clean = str_replace_all(for_auc_clean, pattern = '\\. \\.', '\\.') # remove double full-stops
   } # end of if index > 0
 
 }
 
-## part 1b, as above but with percentages
+
+## part 1b, as above but with percentages ##
 just_numbers_percent = str_locate_all(for_auc_clean, pattern = ci_auc_number_percent )[[1]]
 just_numbers_percent2 = str_locate_all(for_auc_clean, pattern = ci_auc_number_percent2 )[[1]]
 just_numbers_percent = rbind(just_numbers_percent, just_numbers_percent2)
 auc_numbers_percent = NULL
 if(nrow(just_numbers_percent) > 0){ # if any CIs to look for
   
+  # remove duplicates
+  if(nrow(just_numbers_percent)>1){
+    just_numbers_percent = just_numbers_percent[!duplicated(just_numbers_percent),]
+    just_numbers_percent = matrix(just_numbers_percent, ncol=2) # in case of format change
+  }
+  
   sentences = str_split(for_auc_clean, pattern='(\\.|;) |\\.$')[[1]] # split into sentence, using full-stop or semi-colon
   sentences = sentences[sentences!='']
   
   # which sentences have AUC patterns?
   index = str_detect(sentences, pattern = auc.pattern)
-  not_index = str_detect(sentences, pattern = sens_spec_short) # do not include sentences that have sensitivity, specificity, etc
+  not_index = str_detect(sentences, pattern = sens_spec_short) # using "not clean" version; do not include sentences that have sensitivity, specificity, etc
   # for 'respectively'-style statistics
   if(any(not_index) == TRUE){
     sentences = remove_other_stats(sentences) # blank the other statistics
@@ -85,6 +97,12 @@ if(nrow(just_numbers_percent) > 0){ # if any CIs to look for
     just_numbers_percent = rbind(just_numbers_percent, just_numbers_percent2)
     if(nrow(just_numbers_percent) > 0){
       
+      # remove duplicates
+      if(nrow(just_numbers_percent)>1){
+        just_numbers_percent = just_numbers_percent[!duplicated(just_numbers_percent),]
+        just_numbers_percent = matrix(just_numbers_percent, ncol=2) # in case of format change
+      }
+      
       for (i in 1:nrow(just_numbers_percent)){
         text_with_ci_long = str_sub(to_search, start = just_numbers_percent[i,1], end = just_numbers_percent[i,2])
         text_with_ci = str_replace_all(text_with_ci_long, pattern='[^0-9|\\.]', replacement=' ') # get rid of everything bar numbers
@@ -95,7 +113,10 @@ if(nrow(just_numbers_percent) > 0){ # if any CIs to look for
           f = data.frame(type = c('mean - percent','lower - percent','upper - percent'), auc=numbers)
           as.numbers = as.numeric(numbers)
           if((all(as.numbers >= 0 & as.numbers <= 100)) & as.numbers[1]>=as.numbers[2] & as.numbers[1]<=as.numbers[3]){ # only keep if all three numbers are between 0 and 100, and if mean is within interval
-            auc_numbers_percent = bind_rows(auc_numbers_percent, f)
+            # add interval difference
+            diff = make_diff(as.numbers) # function to extract largest CI width
+            f_diff = data.frame(type = 'diff - percent', auc = diff) # 
+            auc_numbers_percent = bind_rows(auc_numbers_percent, f, f_diff)
             # now remove the text from the abstract so the numbers are not extracted again below
             text_with_ci_long = str_replace_all(text_with_ci_long, pattern='\\(|\\[|\\)|\\]', replacement='.') # should this be \\.?
             sentences_yes = str_remove_all(sentences_yes, pattern=text_with_ci_long)
@@ -104,15 +125,17 @@ if(nrow(just_numbers_percent) > 0){ # if any CIs to look for
       }
     }# end of nrow > 0 if
     
-    for_auc_clean_no = paste(c(sentences_no,'.'), collapse='. ', sep='')
-    for_auc_clean_yes = paste(c(sentences_yes,'.') , collapse = '. ')
+    for_auc_clean_no = paste(c(sentences_no,'. '), collapse='. ', sep='')
+    for_auc_clean_yes = paste(c(sentences_yes,'. ') , collapse = '. ')
     for_auc_clean = str_squish(paste('dummy start sentence. ', for_auc_clean_no, for_auc_clean_yes, sep='', collapse = '. ')) # update abstract
     for_auc_clean = str_replace_all(for_auc_clean, pattern = '\\. \\.', '\\.') # remove double full-stops
   } # end of if index > 0
   
 }
 
+
 ## part 2, look for confidence intervals with 'ci' (or similar) in wording ##
+# can also do percents
 auc_numbers2 = NULL
 ci.places = str_locate_all(string = for_auc_clean, pattern = ci.pattern.spaces)[[1]] # all patterns, including annals - from 1_confidence_intervals_patterns.R
 if(nrow(ci.places) > 0){ # if any CIs to look for
@@ -153,7 +176,9 @@ if(nrow(ci.places) > 0){ # if any CIs to look for
     # does it have AUC in mean text?
     any_auc_in_text = str_detect(mean.text[[i]], pattern = auc.pattern)
     any_sens_spec_text = str_detect(mean.text[[i]], pattern = sens_spec_short) #
+    any_difference = str_detect(mean.text[[i]], pattern = 'difference|delta') #
     any_auc_in_text[any_sens_spec_text] = FALSE # remove sentences with sensitivity/specificity
+    any_auc_in_text[any_difference] = FALSE # remove sentences that are likely for a difference
     if(any_auc_in_text ==FALSE){next}
     
     # remove any number after 'per' and any two numbers after 'range'; also split into words
@@ -162,15 +187,24 @@ if(nrow(ci.places) > 0){ # if any CIs to look for
     mean.words = remove.per(str_split(mean.text[[i]], pattern=what.to.split)[[1]])
     mean.words = mean.words[!mean.words %in% c('95','90','99')] # remove 95 for interval
     
+    # are the numbers a percent?
+    mean.text.no.ci = str_remove_all(mean.text[[i]], '9(0|5|9) ?\\%')
+    ci.text.no.ci = str_remove_all(ci.text[[i]], '9(0|5|9) ?\\%')
+    percent = str_detect(mean.text.no.ci, '[0-9] ?\\%') & str_detect(ci.text.no.ci, '[0-9] ?\\%') # percent in both
+    
     # find next two numbers per CI
     nums = suppressWarnings(as.numeric(unlist(ci.words)))
+    nums.to.test = nums[is.na(nums)==FALSE] # just look at first two numbers for next line ...
+    if(all(nums.to.test[1:2]<=1, na.rm = TRUE)){percent = FALSE} # ... very unlikely to be percents if all numbers are under 1
+    if(percent == TRUE){nums = nums / 100} # convert percentages here
     nums[nums > 1] = NA
     nums[nums < 0] = NA
-    chars = suppressWarnings(unlist(ci.words)) # keep character version
+    chars = suppressWarnings(unlist(ci.words)) # keep character version as this is better for removing duplicate text
     if(sum(is.na(nums)==FALSE) > 1){ # Any confidence intervals? (need two numbers) No numbers usually mean it was just text
       cis = chars[is.na(nums)==FALSE][1:2] # first two (use characters to keep decimal places)
       # find last number for mean
       nums = suppressWarnings(as.numeric(mean.words)) # suppressed warnings for turning 
+      if(percent == TRUE){nums = nums / 100} # convert percentages here
       nums[nums > 1] = NA # blank numbers which can't be a AUC
       nums[nums < 0] =  NA
       mean = -99 # start with -99 (missing), to be replaced by the next steps
@@ -179,15 +213,20 @@ if(nrow(ci.places) > 0){ # if any CIs to look for
         mean = mean[length(mean)] # last number
       }
       f = data.frame(type = c('mean','lower','upper'), auc=c(mean, cis))
+      if(percent == TRUE){f$auc = as.character(as.numeric(f$auc)/100)}
       as.numbers = as.numeric(c(mean, cis))
+      if(percent == TRUE){as.numbers = as.numbers/100} # seperate version if working with percents
       if((all(as.numbers >= 0 & as.numbers <= 1)) & as.numbers[1]>=as.numbers[2] & as.numbers[1]<=as.numbers[3]){ # only keep if all three numbers are between 0 and 1, and if mean is within interval
         # do not add if intervals are a perfect match to an already included result
         if(is.null(auc_numbers2)==FALSE){
           already_included = inner_join(f, auc_numbers2, by=c('type','auc'))
           if(nrow(already_included) == 3){f = NULL} # must be perfect match
         }
+        # add interval difference
+        diff = make_diff(as.numbers) # function to extract largest CI width
+        f_diff = data.frame(type = 'diff', auc = diff)
         #
-        auc_numbers2 = bind_rows(auc_numbers2, f)
+        auc_numbers2 = bind_rows(auc_numbers2, f, f_diff)
         # now remove the text from the abstract so the numbers are not extracted below
         for_auc_clean_new = str_remove_all(for_auc_clean_new, pattern=paste(c(mean, cis), collapse='|'))
         for_auc_new = str_remove_all(for_auc_new, pattern=paste(c(mean, cis), collapse='|'))

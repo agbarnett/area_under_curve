@@ -26,9 +26,9 @@ if(any_respect == TRUE){
     index = str_detect(sentences[loop], paste(sens_spec_words, collapse = '|'))
     if (index == FALSE){skipit = TRUE} # changed to FALSE
       
-    ## count statistics
+    ## count all types of statistics
     n_stats = sum(str_count(sentences[loop], c(sens_spec_words, auc.words.no.breaks)))
-    if(n_stats <= 1){next}
+    if(n_stats <= 1){next} 
     
     gaps = str_extract_all(sentences[loop], str_c(c(sens_spec_words, auc.words.no.breaks), collapse = "|")) %>% 
       setNames(seq_along(.)) %>%
@@ -89,9 +89,13 @@ if(any_respect == TRUE){
       as.numbers = as.numeric(aucs4)
       #
       if(length(as.numbers)==3){
-        if((all(as.numbers >= 0 & as.numbers <= 1)) & as.numbers[1]>as.numbers[2] & as.numbers[1]<as.numbers[3]){ # only keep if all three numbers are between 0 and 1, and if mean is within interval
+        if((all(as.numbers >= 0 & as.numbers <= 1)) & as.numbers[1]>=as.numbers[2] & as.numbers[1]<=as.numbers[3]){ # only keep if all three numbers are between 0 and 1, and if mean is within interval
           this_frame = data.frame(type = c('mean','lower','upper'), auc = aucs4)  # keep stats as non-numbers for now
-          auc_respectively = bind_rows(auc_respectively, this_frame)
+          # add interval difference
+          diff = make_diff(as.numbers) # function to extract largest CI width
+          f_diff = data.frame(type = 'diff', auc = diff)
+          #
+          auc_respectively = bind_rows(auc_respectively, this_frame, f_diff)
         }
       }
       if(length(as.numbers) < 3 & length(as.numbers) > 0){
@@ -104,8 +108,10 @@ if(any_respect == TRUE){
         all_numbers = str_extract_all(sentences[loop], pattern = auc_number)[[1]] # could add '-' to end of auc_number in ending characters
         all_numbers = paste(all_numbers, collapse='|')
         all_numbers = str_replace_all(all_numbers, '[(]|[)]|[\\[]|[\\]]', '.') # first replace round/square brackets with any character - no slashes needed here as per 99_auc_pair.R
-        for_auc_clean = str_remove_all(for_auc_clean, pattern = all_numbers) 
-        for_auc = str_remove_all(for_auc, pattern = all_numbers)
+        if(nchar(all_numbers)>0){ # for rare occasions when there are no matches
+          for_auc_clean = str_remove_all(for_auc_clean, pattern = all_numbers) 
+          for_auc = str_remove_all(for_auc, pattern = all_numbers)
+        }
       }
     }
   } # end of skipit if

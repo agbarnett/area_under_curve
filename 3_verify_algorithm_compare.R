@@ -3,10 +3,12 @@
 # see 2_verify_algorithm_create.R for random selection of pubmed data
 # Jan 2023
 library(ggplot2)
+g.theme = theme_bw() + theme(panel.grid.minor = element_blank())
 library(tidyr)
 library(purrr)
 library(dplyr)
 library(stringr)
+library(vecsets) # for vintersects
 library(openxlsx) # for reading in Excel
 # code needed to run the algorithm:
 source('99_main_function_abstract.R')
@@ -14,40 +16,46 @@ source('99_functions.R')
 source('1_patterns.R')
 source('1_confidence_intervals_pattern.R')
 
-# basics for validation:
-year = '2020' # 2020, 2021 or 2022
-n_sample = 100
-
 ## part 1: read in results checked by hand
-infile = paste("validate/AUC_mesh_", year, "_completed.xlsx", sep='') # year of search in file name
-random_selection = read.xlsx(infile) %>%
-  select(pmid, abstract, actual_sample_size, actual_AUC) %>%
-  mutate(date = as.numeric(year), # just year
-         jabbrv = 'validation', # does not matter for validation
-         n.authors = 0, # does not matter for validation
-         type = 'validation', # does not matter for validation
-         country = 'validation', # does not matter for validation
-  )
+random_selection = NULL
+years = c('2020','2021','2022')
+for (year in years){
+  infile = paste("validate/AUC_mesh_", year, "_completed.xlsx", sep='') # year of search in file name
+  this_selection = read.xlsx(infile) %>%
+    select(pmid, abstract, actual_sample_size, actual_AUC) %>%
+    mutate(date = as.numeric(year), # just year
+           jabbrv = 'validation', # does not matter for validation
+           n.authors = 0, # does not matter for validation
+           type = 'validation', # does not matter for validation
+           country = 'validation', # does not matter for validation
+           actual_sample_size = NA # for consistency across Excel sheets
+    )
+  random_selection = bind_rows(random_selection, this_selection)
+}
+n_sample = nrow(random_selection)
+random_selection = mutate(random_selection, mesh='') # do not have MESH terms
+
 
 ## part 2: run the random selections through the algorithm ##
-algorithm_data = fcounts = NULL
+algorithm_data = framed_results = NULL
 for (k in 1:n_sample){
   results = process_abstract(random_selection, k = k) # the algorithm
   frame = data.frame(pmid = results$tframe$pmid, 
                      abstract = random_selection$abstract[k],
-                     sample_size = results$tframe$sample_size,
+                     #sample_size = results$tframe$sample_size, # no longer used, too inaccurate
                      AUC = NA)
   if(is.null(results$aframe) == FALSE){
-    frame$AUC = paste(results$aframe$auc, collapse = ', ')
-    fcounts = bind_rows(fcounts, results$fcounts)
+    framed_results = bind_rows(framed_results, results$aframe)
+    aucs_to_add = filter(results$aframe, !str_detect(type,'diff')) %>% # do not include difference in CI
+      pull(auc)
+    frame$AUC = paste(aucs_to_add, collapse = ', ')
   }
   algorithm_data = bind_rows(algorithm_data, frame)
 }
-algorithm_data = select(algorithm_data, pmid, sample_size, AUC)
 
 ## part 3: merge hand-entered data with algorithm data and then compare 
 to_compare = full_join(random_selection, algorithm_data, by='pmid') %>%
-  select(pmid, sample_size, AUC, actual_sample_size, actual_AUC)
+  select(pmid, AUC, actual_AUC)
 
 # compare AUC
 auc_compare = auc_numbers = NULL
@@ -76,7 +84,6 @@ for (k in 1:n_sample){
 
 # Tidy up compare data
 auc_compare = filter(auc_compare, !(is.na(auc.algorithm) & is.na(auc.manual))) # remove if both missing
-# differences per abstract - to here
 
 # Bland-Altman plot for numbers per abstract
 auc_numbers_compare = mutate(auc_numbers,
@@ -101,14 +108,14 @@ aplot
 filter(auc_numbers_compare, n_algorithm > n_manual)
 filter(auc_numbers_compare, n_algorithm < n_manual)
 
-# compare sample size
-sample_size_compare = mutate(to_compare, 
-                  actual_sample_size = as.numeric(actual_sample_size),
-                  sdiff = sample_size - actual_sample_size)
+# compare sample size - no longer used, sample size needs much more work, so abandoned
+#sample_size_compare = mutate(to_compare, 
+#                  actual_sample_size = as.numeric(actual_sample_size),
+#                  sdiff = sample_size - actual_sample_size)
 
 # check with parts of the algorithm are returning the most AUCs
-group_by(fcounts, source) %>%
-  summarise(total = sum(counts))
+group_by(framed_results, source) %>%
+  tally()
 
 ## compare AUC numbers - repeat from above?? 
 auc_compare = NULL
@@ -137,12 +144,31 @@ for (k in 1:nrow(to_compare)){
 }
 auc_compare = mutate(auc_compare, na.total = is.na(estimated) + is.na(actual)) %>%
   filter(na.total < 2) # remove rows where both missing
-# plot and include missing results
-library(naniar)
-ggplot(auc_compare, 
-       aes(x = estimated, 
-           y = actual)) + 
-  geom_miss_point()+
-  theme_bw()
 
-## compare the distribution of included and excluded numbers - to do
+## compare the distribution of included and excluded numbers
+# switch to long format
+f1 = filter(auc_compare, is.na(estimated)) %>%
+  mutate(type = 'Algorithm missed') %>%
+  rename('auc' = 'actual')
+f2 = filter(auc_compare, is.na(actual)) %>%
+  mutate(type = 'Algorithm added') %>%
+  rename('auc' = 'estimated')
+f3 = filter(auc_compare, !is.na(estimated) & !is.na(actual)) %>%
+  mutate(type = 'Both complete') %>%
+  rename('auc' = 'estimated') # can be either
+for_plot = bind_rows(f1, f2, f3)
+bplot = ggplot(for_plot, aes(x=type, y=auc))+
+  geom_boxplot()+
+  geom_jitter(height=0, width=0.25)+
+  xlab('')+
+  g.theme
+bplot
+
+# linear model of differences 
+for_plot = mutate(for_plot,
+type = as.factor(type),
+type = relevel(type, ref='Both complete'))
+mmodel = glm(auc ~ type, data = for_plot)
+summary(mmodel)
+hist(resid(mmodel))
+# differences mostly due to 33706377 which has a `area under the precision-recall curve`

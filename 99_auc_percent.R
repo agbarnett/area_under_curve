@@ -2,8 +2,10 @@
 # find AUCs as a percent based on nearby words
 # Jan 2023
 
+# first remove CIs
+for_percent = str_remove_all(for_auc_clean, pattern = '9(0|5|9)\\%.confidence.interval|9(0|5|9)\\%.?ci')
 # search
-aucs_percent = str_extract_all(for_auc_clean, pattern = find_pattern_percent)[[1]]
+aucs_percent = str_extract_all(for_percent, pattern = find_pattern_percent)[[1]]
 if(length(aucs_percent) > 0){
   # split if multiple statistics
   split_percents = unlist(str_split(aucs_percent, pattern = ', | and ')) # take them all

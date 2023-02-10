@@ -2,6 +2,15 @@
 # useful functions for AUC work
 # December 2022
 
+## get the largest difference in CI width, assume order is mean, lower, upper
+make_diff = function(numbers){
+  diff = rep(NA, 2)
+  diff[1] = numbers[3] - numbers[1] # upper minus mean
+  diff[2] = numbers[1] - numbers[2] # mean minus lower
+  max = as.character(max(diff)) # must be a character for merging with other numbers
+  return(max)
+}
+
 ## nrow that returns 0 for null
 nrow0 = function(x){
   n = nrow(x)
@@ -65,7 +74,7 @@ remove_commas = function(in_text){
 ## remove other statistics from the same sentence, used by 99_auc_confidence_intervals.R
 remove_other_stats = function(in_sentences){
   # vector of patterns, including AUC (desired) and others (not desired)
-  stats_pattern = c('auc|auroc|area under curve',
+  stats_pattern = c('auc|auroc|area under curve', # included because we need to count these too to work out their placement
   '\\bsens?\\b', # odd acronym used by 33739040
   '\\bspec?s?\\b',
   'sensitiv[a-z]*\\b',
@@ -76,12 +85,12 @@ remove_other_stats = function(in_sentences){
   'hosmer',
   '\\bf1\\b')
   # sentences with respectively
-  with_respect = str_detect(tolower(in_sentences), 'respectively')
+  with_respect = str_detect(in_sentences, 'respectively')
   if(any(with_respect) == TRUE){
     other_sentences = in_sentences[!with_respect]
     in_sentences = in_sentences[with_respect]
     for(s in 1:sum(with_respect)){ # loop through sentences that have 'respectively'
-      to_fix = tolower(in_sentences[s])
+      to_fix = in_sentences[s]
       # get order of statistics
       order = str_locate(to_fix, stats_pattern)
       stat_order = rank(order[,1])

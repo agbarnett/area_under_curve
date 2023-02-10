@@ -162,3 +162,32 @@ Warning, non-numeric AUC for 35219226
 9  35027588           5        7   -2  6.0 # checked
 10 34483226           2        4   -2  3.0 # checked
 
+
+### same for 2021 data
+
+> # differences
+
+> filter(auc_numbers_compare, n_algorithm > n_manual)
+      pmid n_algorithm n_manual diff   av
+1 34140018          13       12    1 12.5
+2 33662459           4        3    1  3.5 - caused by '1 block'
+3 34621687           4        3    1  3.5
+4 34158577           1        0    1  0.5
+5 34262098           1        0    1  0.5 - hard to fix, talking about AUC range
+
+> filter(auc_numbers_compare, n_algorithm < n_manual)
+       pmid n_algorithm n_manual diff   av
+1  33713584           7        9   -2  8.0
+2  34072626           0        2   -2  1.0 
+3  33868171           1        7   -6  4.0 # fixed % issue
+4  34844565           1        6   -5  3.5 
+5  33835766          10       14   -4 12.0 # odd presentation
+6  34301187           0        1   -1  0.5 # odd wording
+7  33662036          10       13   -3 11.5 # could investigate further
+8  33739456           1        2   -1  1.5 # difficult presentation, two AUC numbers far apart, 2nd number has no clear label
+9  34145352          24       26   -2 25.0
+10 34465601           2        9   -7  5.5 # could fix by removing all text in brackets after an AUC?? complex! "0.98 (colorectal cancer), 0.98 (hepatocellular carcinoma)", so remove `hepatocellular carcinoma`, etc
+11 34159496           2        3   -1  2.5 # perhaps pair fixed this?
+12 34589553           5        9   -4  7.0 # non-standard presentation
+13 33737911           4        5   -1  4.5 # fixed? slightly modified pattern for c-index
+14 34568486           0        1   -1  0.5 # AUC as a threshold

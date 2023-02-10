@@ -1,0 +1,50 @@
+---
+title: "AUC results to check"
+output: 
+  word_document:
+    toc: no
+---
+
+```{r setup, include=FALSE}
+# called from 5_plot_results.R
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE, error=FALSE, comment='', dpi=400)
+options(width=1000) # Wide pages
+options(scipen=999) # avoid scientific presentation
+start = 'https://pubmed.ncbi.nlm.nih.gov/' # start of url
+#TeachingDemos::char2seed('nicole')
+TeachingDemos::char2seed('adrian')
+n_check = 25
+```
+
+
+### Mean results that are exactly 0.70
+
+
+```{r, results='asis'}
+# check results at 1, all types or just mean?
+check1 = filter(results, 
+               #digits == 3, # all digits
+               type == 'mean',
+               auc == 0.7) %>%
+  sample_n(n_check)
+for (k in 1:n_check){
+  cat('* ', start, check1$pmid[k], '\n', sep='')
+}  
+```
+
+
+
+### Mean results that are exactly 1
+
+
+```{r, results='asis'}
+# check results at 1, all types or just mean?
+check1 = filter(results, 
+               #digits == 3, # all digits
+               type == 'mean',
+               auc == 1) %>%
+  sample_n(n_check)
+for (k in 1:n_check){
+  cat('* ', start, check1$pmid[k], '\n', sep='')
+}  
+```

@@ -7,20 +7,22 @@
 words.to.search = 10 
 
 ## splitting patterns
-# \p{Pd} is any type of hyphen
-what.to.split = "\\p{Pd}|\\/|-|,|=|\\%|,|;|:| |~|\\)|\\(|\\]|\\[|\\{|\\}" # whole load of characters for what to split numbers on 
+# \p{Pd} is any type of hyphen; 
+# removed \\p{Pd} and hyphen (negative) to keep negative numbers ...
+# ... put back again because hyphen used so often for interval breaks
+what.to.split = "\\p{Pd}|-|\\/|,|=|\\%|,|;|:| |~|\\)|\\(|\\]|\\[|\\{|\\}" # whole load of characters for what to split numbers on 
 
-## what is an AUC number, can start blank or zero. up to 4 decimal places, then a break; can also be 1; ( |0) allows for '0.6' and ' .6'
+## what is an AUC number, can start blank or zero. up to 6 decimal places, then a break; can also be 1; need to allow for '0.6' and ' .6'
 # special ending for numbers; needed because decimal place gets confused with full-stop, last two characters aims to capture full stop
 boundary_no_dot_start = "(?<=(,|;|:|=|\\(|\\[|^| |\\. ))" # look behind, so symbols do not get included
 boundary_no_dot_end = "(?=(,|;|:|\\)|\\]|\\%| |$|\\. |\\.$))" # look ahead
 #
-auc_number_no_start_end = '((0| )\\.[0-9][0-9]?[0-9]?[0-9]?|1\\.0?0?0?|1)'
+auc_number_no_start_end = '(-?\\.[0-9][0-9]?[0-9]?[0-9]?[0-9]?[0-9]?|-?0\\.[0-9][0-9]?[0-9]?[0-9]?[0-9]?[0-9]?|1\\.0?0?0?|1( |,|\\.|\\)))'
 auc_number = paste(boundary_no_dot_start, auc_number_no_start_end, boundary_no_dot_end, sep='') # version with start and end
 
 # general numbers; including version with percent; and versions without start/end
-general_number_no_start_end = '([0-9][0-9]?[0-9]?[0-9]?\\.[0-9][0-9]?[0-9]?[0-9]?|[0-9]?[0-9]?[0-9]?[0-9])'
-general_number_percent_no_start_end = '([0-9][0-9]?[0-9]?[0-9]?\\.[0-9][0-9]?[0-9]?[0-9]? ?\\%|[0-9]?[0-9]?[0-9]?[0-9] ?\\%)' # with optional space before %
+general_number_no_start_end = '-?(( -?|[0-9][0-9]?[0-9]?[0-9]?)\\.[0-9][0-9]?[0-9]?[0-9]?[0-9]?|[0-9]?[0-9]?[0-9]?[0-9]?[0-9])' # with " |" at start for things like ' .50'
+general_number_percent_no_start_end = '-?([0-9][0-9]?[0-9]?[0-9]?\\.[0-9][0-9]?[0-9]?[0-9]?[0-9]? ?\\%|[0-9]?[0-9]?[0-9]?[0-9]?[0-9] ?\\%)' # with optional space before %
 general_number = paste(boundary_no_dot_start, general_number_no_start_end, boundary_no_dot_end, sep='')
 general_number_percent = paste(boundary_no_dot_start, general_number_percent_no_start_end, boundary_no_dot_end, sep='')
 # see 98_testing.R
@@ -29,6 +31,20 @@ general_number_percent = paste(boundary_no_dot_start, general_number_percent_no_
 ci_auc_number = paste(boundary_no_dot_start, auc_number_no_start_end, " ?(\\(|\\[|,|:|)? ?(9(0|5|9)\\% confidence interval( ?.ci.)?|9(0|5|9)\\%.?ci)? ?(\\(|\\[)?", auc_number_no_start_end, ".?.?.?.?", auc_number_no_start_end, '(\\. |\\)|\\]|,|;|$)', sep='') # used `.ci.` to cover '(ci)' and '[ci]'
 ci_auc_number_percent = paste(boundary_no_dot_start, general_number_percent_no_start_end, " ?(\\(|\\[|,|:|)? ?(9(0|5|9)\\% confidence interval( ?.ci.)?|9(0|5|9)\\%.?ci)? ?(\\(|\\[)?", general_number_percent_no_start_end, ".?.?.?.?", general_number_percent_no_start_end, '(\\. |\\)|\\]|,|;|$)', sep='') # 
 ci_auc_number_percent2 = paste(boundary_no_dot_start, general_number_percent_no_start_end, " ?(\\(|\\[|,|:|)? ?(9(0|5|9)\\% confidence interval( ?.ci.)?|9(0|5|9)\\%.?ci)? ?(\\(|\\[)?", general_number_no_start_end, ".?.?.?.?", general_number_percent_no_start_end, '(\\. |\\)|\\]|,|;|$)', sep='') # v2, where middle number is not a percent
+
+## text describing AUCs to remove
+describing_text = c('from.0?\\.50?.\\(?no.predictive.ability\\)?.to.(1|1\\.00?|100%).\\(?perfect',
+       'from.0?\\.50?.\\(?no predictive ability\\)?.to.(1|1\\.00?|100%).\\(?perfect',
+       'perfect.classifications?.(provides|gives|would.be).an.auc.of.(100%|1)',
+       'of.the.perfect.test.is.(1|1\\.00?|100%)',
+       'an.excellent.model.has.auc(.of)?(.near)?(.to)?(.the)?.1',
+       'predictions?.are.100\\%.(correct|perfect).has.an.AUC.?(of|equals|=).?(1|1.0|1.00)', # from google
+       'auc.(varies|ranges).between.(0|0.5).(and|to).1', # from wikipedia
+       'uninformative.(classifier|model).(yielding|giving).0.5', # from wikipedia
+       '(an|if).auc.?(.score|statistic)?(of|=|equals|over|>).?(0|0\\.5|1|1\\.0|1\\.00),?(.it)?(.would)?(means?|indicates?)'
+)
+describing_text = describing_text[order(-nchar(describing_text))] # long to short
+describing_pattern = paste(describing_text, collapse='|')
 
 ## Area under curve patterns, using dots to allow for hyphens; different words for AUC; AUROCs from 28813448
 auc.words.no.breaks = c(
@@ -41,14 +57,13 @@ auc.words.no.breaks = c(
   'auc.rocs?',
   'aucs?.\\(areas?.under.the.curve\\)',
   'auc.values.\\(the.area.under.the.roc.curve\\)',
-  'areas?.under.the.precision.recall.curves?',
   'areas?.under.the.curves?( (\\(|\\[)aucs?(\\)|\\]))?', # with optional acronym
   'areas?.under.curves?( (\\(|\\[)aucs?(\\)|\\]))?',
   'areas?.under.the.roc.curves?( (\\(|\\[)aurocs?(\\)|\\]))?',
   'receiver.operat[a-z]*',
   'receiver.operating.characteristic( (\\(|\\[)rocs??(\\)|\\]))?',
   'receiver.operating.characteristic.curves?( (\\(|\\[)rocs??(\\)|\\]))?',
-  'c.index',
+  'c.index(.value)?',
   'c.indices',
   'c.statistics?'
 )
@@ -66,6 +81,7 @@ link_words = c("were determined as",
                "was equals? to",
                "is determined as",
                "were equal to",
+               "ranged between",
                "equals? to",
                "equals?",
                "were",
@@ -79,7 +95,6 @@ link_words = c("were determined as",
 link_words_extra = paste(extra_words, link_words, sep='')
 opener = paste(rep(auc.words.no.breaks, each = length(link_words_extra)), link_words_extra, sep = ".") # all combinations of AUC and phrases; use sep of dot to allow 'auc-value' etc
 # broke into multiple because it so large
-# could add "and ranged between" 35027588
 numbers = list()
 numbers[[1]] = paste(auc_number_no_start_end, ', ?', auc_number_no_start_end, ', ?', auc_number_no_start_end, ', ?', auc_number_no_start_end, ', ?', auc_number_no_start_end, ', ?', auc_number_no_start_end, ',? ?and ?', auc_number_no_start_end, sep='') # lists of 7
 numbers[[2]] = paste(auc_number_no_start_end, ', ?', auc_number_no_start_end, ', ?', auc_number_no_start_end, ', ?', auc_number_no_start_end, ', ?', auc_number_no_start_end, ',? ?and ?', auc_number_no_start_end, sep='') # lists of 6
@@ -98,15 +113,67 @@ for (ind in 1:8){
   sentence_pattern_aucs[[ind]] = paste(combs, collapse='|')
 }
 
+### Pharmacokinetic
+# Mesh terms to exclude
+mesh_exclude = c('Absorption',
+                 'Biological Availability',
+                 'Biotransformation',
+                 'Chronopharmacokinetics',
+                 'Drug Elimination Routes',
+                 'Drug Liberation',
+                 'Metabolic Clearance Rate',
+                 'Pharmacological and Toxicological Phenomena',
+                 'Therapeutic Equivalency',
+                 'Tissue Distribution',
+                 'Administration Schedules?, Drug',
+                 'Drug Administration Schedules',
+                 'Schedules?, Drug Administration')
+mesh_exclude = paste(mesh_exclude, collapse='|')
+# additional Mesh after first pass
+mesh_exclude_additional = c('administration & dosage',
+                            'metabolism')
+mesh_exclude_additional = paste(mesh_exclude_additional, collapse='|')
 
 ## phrases that look like AUC but are other types of AUC (dots to allow hyphens)
-to_remove = c('area.under.the.plasma.concentration.time.curve',
-              'plasma.concentration.time.curve',
+# remove whole abstract for these matches
+to_remove_not_auc = c('area.under.the(.plasma)?.concentration.(time.)?curve',
+              'plasma.area.under.the.curve',
+              'maximal.(plasma|serum|glucose|insulin|galactose)',
+              'hp.c.index',
+              'half.li(fe|ves)',
+              'peak.enhancement',
+              'peak(.femoral|arterial).blood',
+              'peak.(blood|plasma|serum|glucose|insulin)',
+              '(plasma(.lh)?|serum|glucose|insulin).concentrations?',
+              '(plasma(.lh)?|serum|glucose|insulin).aucs?',
               'incremental.area.under.the.curve',
+              'body.clearance',
+              'concentration.time.curves?',
+              'concentration.time.profiles?',
+              'ratio.(of|for).the.area.under.the.curve',
+              'auc.ratio',
+              'log.10.(1-)?auc',
+              '(cholesterol|crp|plasma|serum|glucose|insulin|galactose).absorption',
+              'areas?.under.the.curves?.(for|of).(lh|plasma|serum|glucose|crp|galactose|insulin)',
+              'auc of (crp|plasma|serum|glucose|insulin|galactose)',
+              '(crp|plasma|serum|glucose|insulin|galactose).area.under',
+              #'area.under.the.curve', # lacks specificity
+              'auc.[0-9].to.[0-9][0-9]?.hours?',
+              'auc ?\\(0-[1-9][0-9]? ?(h|hrs|hours?)',
+              'auc ?\\([1-9] ?(h|hrs|hours?)',
               'area.under.the.plasma.concentration.versus.time.curve',
+              'adenocarcinoma.of.the.uterine.cervix',
               '\\bpk\\b', # acronym PK
-              'pharmacokinetic',
+              'volumetric.absorptive',
+              'flow.cytometry',
+              'bioavailability',
+              'pharmaco.?kinetics?',
+              'pharmaco.dynamics?',
+              'toxico.?kinetics?',
               'pharmacology',
+              'electrophoresis',
+              'time.above.threshold',
+              'auc.guided-dos(e|ing)',
               '\\bc.?max\\b',
               'area.under.the.time.concentration.curve',
               'area.under.the.curve.in.range',
@@ -115,23 +182,35 @@ to_remove = c('area.under.the.plasma.concentration.time.curve',
               'time.fev1.curve',
               'fev1.auc',
               'peptide.curve',
+              'maximum.tolerated.doses?',
+              'radius.of.curvature', # because of ROC
               'vas.auc')
-to_remove = to_remove[order(-nchar(to_remove))] # long to short
-to_remove = paste(to_remove, collapse="|")
+to_remove_not_auc = to_remove_not_auc[order(-nchar(to_remove_not_auc))] # long to short
+to_remove_not_auc = paste(to_remove_not_auc, collapse="|")
+
+## additional PK words not captured in first pass
+to_remove_not_auc_additional = c('circulating.concentrations?')
 
 
 ## statistics to remove so they don't get confused with AUC; including differences in AUCs
 stats = c('p.?valu?e?s?',
           '\\bp\\b',
+          '\\bα\\b',
+          '\\balpha\\b',
           '\\bchi','chi.?squared?',
+          '(t|f).adjusted.(test|statistic|test.statistic)s?',
           '\\bt.?statistic','\\bz.?statistic','\\bf.?statistic',
           '\\bt.?test','\\bz.?test','\\bf.?test',
-          'p for all',
+          'p.for.all',
+          'p.for.differences?',
+          'pdiff',
+          'net.reclassification.improvements?( \\(nri\\))?',
           'positive.predictive.values?( \\(ppv\\))?', # optional acronym 
           'negative.predictive.values?( \\(npv\\))?', 
           'positive.likelihood.ratios?( \\(plr\\))?', 
           'negative.likelihood.ratios?( \\(nlr\\))?',
           '\\bppv\\b', '\\bnpv\\b', '\\bplr\\b', '\\bnlr\\b',
+          'false.alarm.rates?( \\(far\\))?',
           'false.positive.rate( \\(fpr\\))?',
           'false.negative.rate( \\(fpr\\))?',
           '\\bfpr\\b', '\\bnfr\\b',
@@ -153,39 +232,55 @@ stats = c('p.?valu?e?s?',
           '\\bsd\\b',
           '\\bauc.change', # exclude changes in AUC statistics
           '\\bauc.improvement',
+          '\\bimproved?.aucs?',
+          'improvements?.in.aucs?',
           '\\bauc.difference',
-          '\\bauc.delta',
-          'drop in auc',
-          'rise in auc',
           'differences? in auc',
-          'Δauc.?roc',
-          'δauc.?roc',
-          'Δauc',
-          'δauc',
-          'changes? in auc',
-          'improvements? in auc',
-          'threshold.probability',
-          'accurac[a-z]*\\b', 
-          'correlat[a-z]*\\b',
-          'specificit[a-z]*\\b',
-          'sensitiv[a-z]*\\b',
+          'changes?.in.aucs?',
+          '\\bauc.delta',
+          'incremental.values?.of.aucs?', 
+          'drop.in.aucs?',
+          'rise.in.aucs?',
+          'areas?.under.the.precision.recall.curves?.?.?.?', # ranges from 0 to 1, not 0.5 to 1
+          'δauc.?rocs?',
+          'δaucs?',
+          'δc\\b',
+          'cut.?off (value|point)( at)?',
           'cut.?offs?',
+          'threshold.probability',
+          'accurac(y|ies)', 
+          'correlat(ions?|ed)',
+          'specificit(ies|y)',
+          'sensitivit(ies|y)',
+          'si.unit',
           'optimism',
-          'hosmer.lemeshow(.test)?(,? p ?(=|<))?',
+          'score',
+          'calibration(.slope)?',
+          'hosmer.lemeshow(.test)?(,? p ?(=|<|>))?',
           'youden(.s)?(.j.statistic)?(.index)?',
-          'accuracy',
           '\\bbrier(.score|statistic)?',
           '\\bf1s?(.score|statistic)?\\b',
-          '\\bspec\\b', # abbreviations
-          '\\bsens\\b')
-operations = c('((of )?&gt;|(of )?>|(of )?≥|(of )?&lt;|(of )?<|(of )?≤|=|(of )?less than|(of )?greater than|equals?( to)?|of|was|is|)') # include `|` for no operator
-numbers = c(paste('(', general_number_no_start_end, ',? ?.?95\\% ?ci:? ', general_number_no_start_end, '.?.?.?.?', general_number_no_start_end, ')', sep=''), # CI
-            paste('(', general_number_no_start_end, ', ?', general_number_no_start_end, ', ?', general_number_no_start_end, ' ?and ?', general_number_no_start_end, ')', sep=''), # lists
-            paste('(', general_number_no_start_end, ', ?', general_number_no_start_end, ' ?and ?', general_number_no_start_end, ')', sep=''), # lists 
+          '\\bspec?\\b', # abbreviations
+          '\\bsens?\\b')
+operations = c('((of )?&gt;|(of )?>|(of )?≥|(of )?&lt;|(of )?<|(of )?≤|=|(of )?less than|(of )?greater than|equals?( to)?| \\(|of|was|were|is|)') # include `|` for no operator
+# repeated for percents and non-percents
+and_c = '(, ?|,? ?and ?)'
+numbers = c(paste('(', general_number_no_start_end, ',? ?.?(9(0|5|9)\\%)? ?ci:? ', general_number_no_start_end, '.?.?.?.?', general_number_no_start_end, ')', sep=''), # CI
+            paste('(', general_number_no_start_end, and_c, general_number_no_start_end, and_c, general_number_no_start_end, and_c, general_number_no_start_end, and_c, general_number_no_start_end, ')', sep=''), # lists
+            paste('(', general_number_no_start_end, and_c, general_number_no_start_end, and_c, general_number_no_start_end, and_c, general_number_no_start_end, ')', sep=''), # lists
+            paste('(', general_number_no_start_end, and_c, general_number_no_start_end, and_c, general_number_no_start_end, ')', sep=''), # lists 
             paste('(', general_number_no_start_end, ' (\\(|\\[)', general_number_no_start_end, ' ?(to|-) ?', general_number_no_start_end, '(\\)|\\]) (and|or) ',
                   general_number_no_start_end, ' (\\(|\\[)', general_number_no_start_end, ' ?(to|-) ?', general_number_no_start_end, '(\\)|\\]))', sep=''), # two Cis
             paste('(', general_number_no_start_end, ' ?(and|to) ?', general_number_no_start_end, ')', sep=''), # and
             general_number_no_start_end,
+            paste('(', general_number_percent_no_start_end, ',? ?.?(9(0|5|9)\\%)? ?ci:? ', general_number_percent_no_start_end, '.?.?.?.?', general_number_percent_no_start_end, ')', sep=''), # CI
+            paste('(', general_number_percent_no_start_end, and_c, general_number_percent_no_start_end, and_c, general_number_percent_no_start_end, and_c, general_number_percent_no_start_end, and_c, general_number_percent_no_start_end, ')', sep=''), # lists
+            paste('(', general_number_percent_no_start_end, and_c, general_number_percent_no_start_end, and_c, general_number_percent_no_start_end, and_c, general_number_percent_no_start_end, ')', sep=''), # lists
+            paste('(', general_number_percent_no_start_end, and_c, general_number_percent_no_start_end, and_c, general_number_percent_no_start_end, ')', sep=''), # lists 
+            paste('(', general_number_percent_no_start_end, ' (\\(|\\[)', general_number_percent_no_start_end, ' ?(to|-) ?', general_number_percent_no_start_end, '(\\)|\\]) (and|or) ',
+                  general_number_percent_no_start_end, ' (\\(|\\[)', general_number_percent_no_start_end, ' ?(to|-) ?', general_number_percent_no_start_end, '(\\)|\\]))', sep=''), # two Cis
+            paste('(', general_number_percent_no_start_end, ' ?(and|to) ?', general_number_percent_no_start_end, ')', sep=''), # and
+            general_number_percent_no_start_end,
             '1') 
 # create all combinations
 one = apply(expand.grid(stats, operations), 1, paste, collapse=" ?")
@@ -194,8 +289,9 @@ combs = combs[order(-nchar(combs))] # long to short
 statistics_patterns = paste(combs, collapse='|')
 
 # plus/minus
-operators = c('±','±','\u00B1','\u2213','\\+[^:alnum:]–', '–[^:alnum:]\\+', '\\+[^:alnum:]-', '-[^:alnum:]\\+', 'plus[^:alnum:]minus', 'minus[^:alnum:]plus') # using any non alpha numeric character between plus and minus; minus signs are different
-combs = paste(operators, general_number_no_start_end, sep =' ?')
+operators = c('±', '\\+\\/-', '\u00B1','\u2213','\\+[^:alnum:]–', '–[^:alnum:]\\+', '\\+[^:alnum:]-', '-[^:alnum:]\\+', 'plus[^:alnum:]minus', 'minus[^:alnum:]plus') # using any non alpha numeric character between plus and minus; minus signs are different
+join = '.?\\(?'
+combs = paste(operators, join, general_number_no_start_end, sep ='')
 combs = combs[order(-nchar(combs))] # long to short
 plus_minus_patterns = paste(combs, collapse='|')
 
@@ -203,11 +299,14 @@ plus_minus_patterns = paste(combs, collapse='|')
 sens_spec_words = c('correlat[a-z]*\\b',
                     'specificit[a-z]*\\b',
                     'sensitiv[a-z]*\\b',
-                    'positive predictive values?( \\(ppv\\))?', # optional acronym 
-                    'negative predictive values?( \\(npv\\))?', 
-                    'positive likelihood ratios?( \\(plr\\))?', 
-                    'negative likelihood ratios?( \\(nlr\\))?',
-                    'diagnos(tic|is) odds ratios?( \\(dor\\))?',
+                    'positive.predictive.values?( \\(ppv\\))?', # optional acronym 
+                    'negative.predictive.values?( \\(npv\\))?', 
+                    'likelihood.ratios?.positive( \\(lpr\\))?', 
+                    'likelihood.ratios?.negative( \\(lnr\\))?',
+                    'positive.likelihood.ratios?( \\(plr\\))?', 
+                    'negative.likelihood.ratios?( \\(nlr\\))?',
+                    'false.alarm.rates?( \\(far\\))?',
+                    'diagnos(tic|is).odds.ratios?( \\(dor\\))?',
                     '\\bppv\\b', '\\bnpv\\b', '\\bplr\\b', '\\bnlr\\b', '\\bdor\\b', # acronyms
                     'accuracy',
                     'youden(.s)?(.j.statistic)?(.index)?',
@@ -233,9 +332,13 @@ sens_spec_patterns = paste(combs, collapse='|')
 sens_spec_short = '\\bsensitiv|\\bspecific|\\bcorrelation|\\byouden|\\bbrier|\\bf1s?\\b'
 
 ## thresholds for p-values and other numbers, e.g., 30447463
-operators = c('>','≥','greater than','&gt;','<','≤','less than','&lt;')
+operators = c('>','≥','⩾','greater than','&gt;','<','≤','⩽','less than','&lt;')
 numbers = paste(general_number_no_start_end, boundary_no_dot_end, sep='')
 combs = apply(expand.grid(operators, numbers), 1, paste, collapse=" ?")
+# a few additional patterns
+additional = 'p(.?value)? ?(<|>|=|&lt;|&gt;) ?\\.0[0-9]?[0-9]?[0-9]?[0-9]?[0-9]?' # p-value without leading 0
+combs = c(combs, additional)
+#
 combs = combs[order(-nchar(combs))] # long to short
 threshold_patterns = paste(combs, collapse='|')
 
@@ -272,6 +375,7 @@ sample_size_words = c('\\b(male|female )?patients\\b',
                       '\\bgirls\\b',
                       '\\bboys\\b',
                       '\\bneonates\\b',
+                      '\\bpregnancies\\b',
                       '\\b(male|female )?cases\\b',
                       '\\b(male|female )?controls\\b',
                       '\\b(male|female )?rats\\b',
@@ -318,3 +422,33 @@ find_pattern3a = paste(find_pattern3a, collapse = '|')
 #find_pattern4 = paste(find_pattern4, collapse = '|')
 #
 find_pattern_percent = paste(c(find_pattern3a, find_pattern3, find_pattern2a, find_pattern2, find_pattern1), collapse='|')
+
+##
+# remove subscript and superscript, bold, italic, etc
+special.words = c('sub','sup','super','i','b','exp','fraction')
+open = paste('\\<', special.words, '\\>', sep='') 
+close = paste('\\<\\/', special.words, '\\>', sep='')
+to_remove_italic = c(open, close)
+to_remove_italic = to_remove_italic[order(-nchar(to_remove_italic))] # longest to shortest
+to_remove_italic = paste(to_remove_italic, collapse='|')
+
+# time/group pattern that gets confused with 0 or 1 as AUC
+times = c('second','sec','minute','min','hour','hr','day','week','month','year')
+groups = c('rater','subject','patient','participant','reader','\\bset','phase','group','judge','round','pod','\\barm','version',
+           'institution','hospital','clinic','grade','stage','point','radiologist','surgeon','nurse','doctor',
+           'assay','type','model','cohort','pol.d')
+units = c('\\bkpa\\b','\\bmg\\b','\\bng\\b','\\bml\\b','\\bkg\\b','\\bmcg\\b','\\bμg\\b','\\bl\\b','\\bmmol\\b','\\bcc\\b','\\bkhz\\b','pg/ml','microgram') # measurements
+groups = unique(groups) # in case of duplicates
+times = c(times, groups)
+times = paste(paste(times, 's?', sep=''), collapse='|') # optional plural and `or`
+units = paste(units, collapse='|')
+times = paste(times, units, sep='|') # add units, not plur
+times = paste(times, '|strat(a|um)', sep='') # not plural
+#time_pattern = paste('\\b(0|1).(', times, ')|(\\b', times, ').(0|1)', sep='')
+number_links = c('[0-9].',
+          '[0-9](,|.?.and).[0-9]',
+          '[0-9](,|.?.and).[0-9](,|.?.and).[0-9]',
+          '[0-9](,|.?.and).[0-9](,|.?.and).[0-9](,|.?.and).[0-9]')
+number_links = number_links[order(-nchar(number_links))] # long to short
+number_links = paste(number_links, collapse='|')
+time_pattern = paste('(\\b', number_links,').(', times, ')|(', times, ').(', number_links, '\\b)', sep='') # breaks at start and end to avoid getting half-numbers

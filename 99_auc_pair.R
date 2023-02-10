@@ -7,11 +7,11 @@
 all_auc_words = paste(auc.words.no.breaks, collapse='|')
 split_pattern = ' ?to ?| ?versus ?| ?vs\\.? ?| ?- ?' # text between the two AUC numbers
 pair_end = paste('( range of | ranged between | of | |: ?|, ?)', auc_number_no_start_end, '(', split_pattern, ')', auc_number_no_start_end, boundary_no_dot_end, sep='')
-pair_patterns = paste("(", all_auc_words, ')', pair_end, collapse='', sep='')
+pair_patterns = paste("(", all_auc_words, ')\\)?', pair_end, collapse='', sep='') # added options bracket end after AUC words
 aucs1_range = str_extract_all(for_auc_clean, pattern = pair_patterns)[[1]]
 aucs1_range_split = NULL
 if(length(aucs1_range) > 0){
-  aucs1_range = str_remove_all(aucs1_range, 'aur?o?c of|aur?o?c|:|c.?statistics?') # clean up text a bit
+  aucs1_range = str_remove_all(aucs1_range, '\\)|aur?o?c of|aur?o?c|:|c.?statistics?') # clean up text a bit
   for (r in 1:length(aucs1_range)){
     aucs1_range_this_split = str_split(aucs1_range, pattern = split_pattern)[[r]]
     if(length(aucs1_range_this_split) < 2){next} # if not two numbers then skip

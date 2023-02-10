@@ -1,0 +1,14 @@
+
+### Results that are exactly 0.95
+
+```{r, results='asis'}
+# check results at 0.95
+check95 = filter(results, 
+               digits == 2,
+               auc == 0.95) %>%
+  sample_n(n_check)
+for (k in 1:n_check){
+  cat('* ', start, check95$pmid[k], '\n', sep='')
+}  
+cat('[link](',check95$pmid[k],')', sep='')
+```
