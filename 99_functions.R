@@ -1,6 +1,6 @@
 # 99_functions.R
 # useful functions for AUC work
-# December 2022
+# February 2023
 
 ## get the largest difference in CI width, assume order is mean, lower, upper
 make_diff = function(numbers){
@@ -109,4 +109,12 @@ remove_other_stats = function(in_sentences){
   }
   # split by numbers
   return(in_sentences)
+}
+
+## function to group AUCs into bins
+my_bin = function(x, digits){
+  mult = 10^digits
+  #y = floor(x*mult)/mult # works as [lower, upper)
+  y = ceiling(x*mult)/mult # works as (lower, upper], better because of 1
+  return(y)
 }

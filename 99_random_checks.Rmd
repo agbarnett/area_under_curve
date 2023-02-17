@@ -1,5 +1,5 @@
 ---
-title: "AUC results to check"
+title: "AUC results from algorithm to check manually"
 output: 
   word_document:
     toc: no
@@ -17,6 +17,24 @@ n_check = 25
 ```
 
 
+### Mean results that are exactly 0.57
+
+
+```{r, results='asis'}
+# check results at 1, all types or just mean?
+check1 = filter(results, 
+               #digits == 3, # all digits
+               type == 'Mean',
+               auc == 0.57) %>%
+  sample_n(n_check)
+for (k in 1:n_check){
+  cat('* ', start, check1$pmid[k], '\n', sep='')
+}  
+```
+
+There was an odd excess of results at 0.57, with a corresponding shortfall at 0.55.
+
+
 ### Mean results that are exactly 0.70
 
 
@@ -24,7 +42,7 @@ n_check = 25
 # check results at 1, all types or just mean?
 check1 = filter(results, 
                #digits == 3, # all digits
-               type == 'mean',
+               type == 'Mean',
                auc == 0.7) %>%
   sample_n(n_check)
 for (k in 1:n_check){
@@ -41,7 +59,7 @@ for (k in 1:n_check){
 # check results at 1, all types or just mean?
 check1 = filter(results, 
                #digits == 3, # all digits
-               type == 'mean',
+               type == 'Mean',
                auc == 1) %>%
   sample_n(n_check)
 for (k in 1:n_check){

@@ -1,7 +1,7 @@
 # 5_plot_results.R
 # plot the main results
 # January 2023
-# not yet worked through, may be better as Rmarkdown
+# mostly moved to Rmarkdown 5_plot_results.Rmd
 #
 library(dplyr)
 library(ggplot2)
@@ -28,6 +28,7 @@ breaks = seq(0, 1.01, 0.01) # up to 1.01 to include 1
 for_histo = filter(results, 
                    digits > 1,
                    !str_detect(type, 'diff|lower|upper')) %>%
+  ### do not use cut, does not work
   mutate(binned = cut(auc, breaks, right = FALSE), # from lower limit up to upper limit: [lower,upper)
          num = as.numeric(binned)) %>%
   group_by(binned, num) %>%
@@ -179,7 +180,7 @@ dev.off()
 
 # focus on specific sections
 f1 = filter(to_plot, auc >= 0.88, auc<=0.92)
-f1 = filter(to_plot, auc >= 0.78, auc<=0.82)
+f1 = filter(to_plot, auc >= 0.55, auc<=0.57)
 hplot_f1 = ggplot(data = f1, aes(x=auc, y=n, ymin=0, ymax=n, col=factor(threshold)))+
   #  geom_point()+
   geom_linerange()+
@@ -189,9 +190,25 @@ hplot_f1 = ggplot(data = f1, aes(x=auc, y=n, ymin=0, ymax=n, col=factor(threshol
   theme(legend.position = 'none')
 hplot_f1
 
+
+# focus on specific sections - version 2
+f1 = filter(to_plot, auc >= 0.88, auc<=0.92)
+f1 = filter(results, 
+            type %in% c('Mean','Pair'),
+            auc >= 0.55, auc<=0.57)
+hplot_f1 = ggplot(data = f1, aes(x=auc))+
+  geom_histogram()
+  #  geom_point()+
+  geom_linerange()+
+#  scale_color_manual(NULL, values=c('skyblue','dark red'))+
+  #  scale_x_continuous(breaks=c(0,0.05,0.5,0.75,0.8,0.9,0.95,1))+
+  g.theme+
+  theme(legend.position = 'none')
+hplot_f1
+
 # plot trend over time in CI width (to do)
 
-# run checks on results that are 0.95 and 1
+# run checks on results on specific values, e.g, 0.95 and 1
 rmarkdown::render('99_random_checks.Rmd', 
                   output_file = '99_random_checks',
                   output_format = 'word_document',

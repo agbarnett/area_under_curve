@@ -54,7 +54,11 @@ for (file in files_to_loop){  #
   
   # save
   outfile = paste('processed/pubmed.', file_number, '.RData', sep='') # 
-  save(abstract.data, aucs, excluded.abstracts, file=outfile)
+  save(abstract.data, 
+       aucs, 
+       numbers, # numbers excluded from first run (0_read_pubmed_baseline.R)
+       excluded.abstracts, 
+       file=outfile)
   
 }
 

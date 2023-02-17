@@ -1,3 +1,53 @@
+---
+title: "stuff no longer needed"
+author: "Adrian Barnett"
+date: "2023-02-11"
+output: html_document
+---
+
+
+## Focus on 0.99 to 1
+
+```{r include=FALSE}
+detailed_colour = c(0.7,0.71,0.72)
+spike = 0.7
+lower = spike - 0.01
+upper = spike + 0.02 + 0.001
+detailed_breaks = seq(lower, upper, 0.001) # up to 1.01 to include 1
+detailed_colour = seq(lower, upper, by = 0.005)
+### rounded histogram
+for_histo = filter(results,
+                   digits > 1, # avoid spikes due to rounding
+                   !str_detect(type, 'diff|lower|upper'),
+                   auc >= min(detailed_breaks), # just within detailed window
+                   auc <= max(detailed_breaks)) %>%
+  mutate(binned = my_bin(auc, digits = 3)) %>%
+  group_by(binned) %>% 
+  tally() %>% 
+  ungroup() %>%
+  mutate(fill = ifelse(binned %in% detailed_colour, 1, 2))
+# plot
+rounded_detailed = ggplot(data = for_histo, aes(x=binned, y=n, fill=factor(fill)))+
+  geom_bar(stat='identity', col='grey22')+
+  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
+  scale_x_continuous(breaks = detailed_breaks + (0.001)/2, # nudge breaks to top of bar
+                     labels = detailed_breaks,
+                     expand=c(0.01,0))+
+  theme_bw()+ # keep minor grid lines
+  theme(axis.text.x = element_text(angle=45, hjust=1))+ # format to prevent dropped zeros, to do
+  xlab('AUC')+
+  ylab('Frequency')+
+  theme(legend.position = 'none')
+rounded_detailed
+
+# export
+filename = paste('figures/histogram_detailed_',spike, '.jpg', sep='')
+jpeg(filename, width=5, height=4, units='in', res=500)
+print(rounded_detailed)
+invisible(dev.off())
+
+```
+
 
 ### Results that are exactly 0.95
 
@@ -12,3 +62,25 @@ for (k in 1:n_check){
 }  
 cat('[link](',check95$pmid[k],')', sep='')
 ```
+
+
+#### Cumulative plot for largest per abstract
+
+```{r cumulative_largest}
+cplot_largest = ggplot(data = largest, aes(x = auc)) +
+  stat_ecdf(geom = "step", size=1.05) +
+#  facet_wrap(~digits)+
+  ylab('Cumulative proportion')+
+  xlab('AUC')+
+  scale_x_continuous(breaks = seq(0,1,0.1), expand=c(0.01,0))+ # expand to avoid extension after 1
+  g.theme+
+  theme(legend.position = 'top')+
+  coord_cartesian(xlim=c(lower_auc_plot, 1))
+cplot_largest
+jpeg('figures/cumulative_largest.jpg', width=5, height=4, units='in', res=500)
+print(cplot_largest)
+invisible(dev.off())
+```
+
+This plot combines the "mean" and "pair" types.
+

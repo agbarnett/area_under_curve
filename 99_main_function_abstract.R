@@ -27,11 +27,12 @@ abstract = str_replace_all(abstract, pattern='\\+\\/-|-\\/\\+', replacement = 'Â
 abstract = str_replace_all(abstract, pattern='\\+', replacement = ' ') # caused problems with some search terms
 abstract = str_remove_all(abstract, '\\b[0-9][0-9]?[0-9]? ?: ?[0-9][0-9]?[0-9]?\\b') # remove ratio numbers, e.g. '35:0' (from both)
 abstract = str_remove_all(abstract, '\\b[0-9][0-9]?[0-9]? ?: ?[0-9][0-9]?[0-9]? ?: ?[0-9][0-9]?[0-9]?\\b') # remove ratio numbers, e.g. '35:0' (from both)
-abstract = str_replace_all(abstract, 'auc.accuracy','auc') # remove one problematic pattern
+abstract = str_replace_all(abstract, 'auc.accuracy','auc') # remove problematic pattern
 abstract = str_remove_all(abstract, plus_minus_patterns) # remove numbers after plus/minus (from both)
-abstract = str_replace_all(abstract, ' fev.?[0-9]', ' fev') # 
+abstract = str_replace_all(abstract, '\\bfev.?[0-9]', ' fev') # 
 abstract = str_replace_all(abstract, '1 ige', 'one ige') # 
 abstract = str_replace_all(abstract, '1 ?- ?auc', 'one - auc') # 
+abstract = str_remove_all(abstract, scientific) # remove scientific numbers
 abstract = str_replace_all(abstract, '\\bic.9(0|5|9)(\\%)?\\b', '95% ci') #  # reverse CI causes confusion
 # remove years, etc as they get confused with numbers
 abstract = str_replace_all(abstract, time_pattern, ' ') 
@@ -65,8 +66,9 @@ find_remove = str_detect(tolower(abstract), pattern = to_remove_not_auc) # patte
 any_auc = ifelse(find_remove==TRUE, FALSE, any_auc)
 is_pk = str_detect(tolower(abstract), pattern = to_remove_not_auc_additional) # pattern from 1_patterns.R
 is_pk_mesh = str_detect(tolower(mesh), pattern = mesh_exclude_additional) 
-any_auc = ifelse(is_pk==TRUE, FALSE, any_auc)
-any_auc = ifelse(is_pk_mesh==TRUE, FALSE, any_auc)
+any_auc = ifelse(is_pk==TRUE | is_pk_mesh==TRUE, FALSE, any_auc) # do not search for AUCs if PK study
+# flag to exclude PK studies
+exclude = ifelse(is_pk==TRUE | is_pk_mesh==TRUE, TRUE, FALSE)
 
 ## get sample size - not accurate enough
 #source('99_sample_size.R', local = environment())
@@ -163,7 +165,11 @@ if(is.null(aucs) == FALSE){
 					date = indata$date[k]) %>% # added as there may be PMID duplicates
       filter(auc >= 0,
              auc <= 1) # exclude AUCs outside 0 to 1
-    if(nrow(aframe) == 0){aframe = NULL}
+    any_auc = TRUE
+    if(nrow(aframe) == 0){
+      aframe = NULL
+      any_auc = FALSE
+    }
   }
 }
 tframe = data.frame(pmid = indata$pmid[k], 
@@ -172,7 +178,8 @@ tframe = data.frame(pmid = indata$pmid[k],
           jabbrv = indata$jabbrv[k], 
           n.authors = indata$n.authors[k],
           country = indata$country[k],
-          any_auc = is.null(aucs) ==FALSE, # any AUCs found
+          any_auc = any_auc, # any AUCs found
+          exclude = exclude, # exclude as PK
           #sample_size = sample_size,# not accurate enough
           stringsAsFactors = FALSE)
 if(nrow(tframe)!=1){cat('error, wrong number of rows', indata$pmid[k], '.\n', sep='')}

@@ -103,6 +103,9 @@ aplot = ggplot(data = auc_numbers_compare, aes(x = av, y = diff))+
   xlab('Average')+
   theme_bw()
 aplot
+jpeg('figures/bland_altman_validation.jpg', width=5, height=5, units='in', res=500, quality = 100)
+print(aplot)
+dev.off()
 
 # differences
 filter(auc_numbers_compare, n_algorithm > n_manual)
@@ -157,12 +160,24 @@ f3 = filter(auc_compare, !is.na(estimated) & !is.na(actual)) %>%
   mutate(type = 'Both complete') %>%
   rename('auc' = 'estimated') # can be either
 for_plot = bind_rows(f1, f2, f3)
-bplot = ggplot(for_plot, aes(x=type, y=auc))+
+# add numbers and percents to labels
+n = group_by(for_plot, type) %>%
+  tally() %>%
+  mutate(percent = round(prop.table(n)*100),
+         cell = paste(type, '\n n = ', n, ' (', percent, '%)', sep = '')) %>%
+  ungroup()
+for_plot = full_join(for_plot, n, by = 'type')
+#
+bplot = ggplot(for_plot, aes(x=cell, y=auc))+
   geom_boxplot()+
   geom_jitter(height=0, width=0.25)+
   xlab('')+
+  ylab('AUC')+
   g.theme
 bplot
+jpeg('figures/boxplot_validation.jpg', width=5, height=5, units='in', res=500, quality = 100)
+print(bplot)
+dev.off()
 
 # linear model of differences 
 for_plot = mutate(for_plot,

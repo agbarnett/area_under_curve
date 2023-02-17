@@ -1,6 +1,6 @@
 # 4_combine_results.R
 # combine the results on lyra from 1_find_auc.R
-# Jan 2023
+# Feb 2023
 library(dplyr)
 library(stringr)
 
@@ -29,11 +29,33 @@ for (file in to_combine){
                     date = as.Date(date, origin='1970-01-01'))
     }
   }
-  #
+  
+  ## create frame of exclusions
+  # PK exclusions in second round
+  pk.excluded = filter(abstract.data, exclude==TRUE) %>%
+    summarise(n = n()) %>%
+    pull(n)
+  # exclusions from first round
+  e1 = data.frame(reason = 'Not English', n = numbers$start - numbers$post.non.english)
+  e2 = data.frame(reason = 'Empty abstract', n = numbers$post.non.english - numbers$post.empty)
+  e3 = data.frame(reason = 'PK', n = (numbers$post.empty - numbers$post.non.pk) + pk.excluded) # exclusions at both stages
+  e4 = data.frame(reason = 'Meta-analysis', n = numbers$post.non.pk - numbers$post.non.meta)
+  ex.frame = bind_rows(e1, e2, e3, e4) %>%
+    mutate(file = file_num)
+  
+  # remove excluded from abstract data
+  abstract.data = filter(abstract.data, exclude==FALSE) %>%
+    select(-exclude, -any_auc)
+  
+  # redo any AUC
+  are_aucs = unique(aucs$pmid)
+  abstract.data = mutate(abstract.data,
+                         any_auc = pmid %in% are_aucs)
+  
+  # concatenate
   abstracts = bind_rows(abstracts, abstract.data)
   results = bind_rows(results, aucs)
-  if(is.null(excluded.abstracts)==FALSE){excluded.abstracts = mutate(excluded.abstracts, file_num = file_num)} # add file number
-  excluded = bind_rows(excluded, excluded.abstracts)
+  excluded = bind_rows(excluded, ex.frame)
 }
 setwd(here)
 
@@ -45,6 +67,7 @@ setwd(here)
 results = mutate(results,
                 # percent = str_detect(type, 'percent'), # no longer works, does not matter
                  type = ifelse(type == 'percent', 'mean', type),
+                 type = ifelse(type == 'diff - percent', 'diff', type),
                  type = ifelse(type == 'pair - percent', 'pair', type),
                  type = ifelse(type == 'mean - percent', 'mean', type),
                  type = ifelse(type == 'lower - percent', 'lower', type),
@@ -63,6 +86,12 @@ abstracts = group_by(abstracts, pmid) %>%
   slice(1) %>% # take latest
   ungroup()
 # need to add dates to results so that duplicates can be removed
+
+# arrange type
+levels = c('mean','pair','lower','upper','diff')
+labels = c('Mean','Pair','Lower','Upper','Difference')
+results = mutate(results,
+                 type = factor(type, levels=levels, labels=labels))
 
 # save
 save(results, excluded, abstracts, file = 'data/analysis_ready.RData')
