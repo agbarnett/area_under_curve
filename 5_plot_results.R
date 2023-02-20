@@ -214,4 +214,23 @@ rmarkdown::render('99_random_checks.Rmd',
                   output_format = 'word_document',
                   params = in_params,
                   envir = new.env(parent = globalenv()))
-                  
+
+# look at mean when lower is 0.57 or 0.55
+f = filter(results, type == 'Lower', auc==0.55)
+pmids = pull(f, pmid) %>% unique()
+related = filter(results, pmid %in% pmids) %>%
+  filter(type == 'Mean') %>%
+  group_by(pmid) %>%
+  tally() %>%
+  ungroup() %>%
+  filter(n==1) %>% # abstracts with just one mean
+  pull(pmid)
+res = filter(results, pmid %in% related) %>%
+  filter(type %in% c('Mean','Lower','Upper')) %>%
+  select(pmid, type, auc) %>%
+  group_by(pmid) %>%
+  pivot_wider(values_from = 'auc', names_from = 'type')
+#
+hplot = ggplot(data=res, aes(x=Mean))+
+  geom_histogram()
+hplot

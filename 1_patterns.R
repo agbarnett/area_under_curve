@@ -201,9 +201,11 @@ to_remove_not_auc_additional = c('circulating.concentrations?',
                                  'elimination.rate',
                                  'trapezoidal.rule',
                                  'infusions?.of.glucose',
-								 'glucose.induced.insulin.release',
+                                 'glucose.infusions?',
+                                 'glucose.induced.insulin.release',
                                  'plasma.glucose',
                                  'serum.cortisol',
+                                 'flow.velocit(y|ies)',
                                  'relative.outflow.capacity',
                                  'metabolite.aucs?')
 to_remove_not_auc_additional = paste(to_remove_not_auc_additional, collapse='|')
@@ -211,8 +213,9 @@ to_remove_not_auc_additional = paste(to_remove_not_auc_additional, collapse='|')
 ## statistics to remove so they don't get confused with AUC; including differences in AUCs
 stats = c('p.?valu?e?s?',
           '\\bp\\b',
+          '\\bdf\\b', # degrees of freedom
           '\\bα\\b',
-          '\\br\\b', # correlation
+          '\\br2?\\b', # correlation and r-squared
           '\\balpha\\b',
           '\\bchi','chi.?squared?',
           '(t|f).adjusted.(test|statistic|test.statistic)s?',
@@ -243,7 +246,7 @@ stats = c('p.?valu?e?s?',
           'standard.error', # standard error / deviation
           'standard.deviation',
           'mean.absolute.error (\\(mae\\))?', # with optional algorithm
-          '\\bsem?\\b',
+          '\\bsem?s?\\b',
           '\\bsd\\b',
           'differences?',
           '\\bauc.change', # exclude changes in AUC statistics
@@ -259,7 +262,7 @@ stats = c('p.?valu?e?s?',
           'δauc.?rocs?',
           'δaucs?',
           'δc\\b',
-          'cut.?off (value|point)( at)?',
+          'cut.?offs?.(values?|points?)(.at)?',
           'cut.?offs?',
           'probabilit(y|ies)',
           'accurac(y|ies)', 
@@ -352,8 +355,9 @@ operators = c('>','≥','⩾','greater than','&gt;','<','≤','⩽','less than',
 numbers = paste(general_number_no_start_end, boundary_no_dot_end, sep='')
 combs = apply(expand.grid(operators, numbers), 1, paste, collapse=" ?")
 # a few additional patterns
-additional = 'p(.?value)? ?(<|>|=|&lt;|&gt;) ?\\.0[0-9]?[0-9]?[0-9]?[0-9]?[0-9]?' # p-value without leading 0
-combs = c(combs, additional)
+additional = 'p(.?value)? ?(<|>|=|&lt;|&gt;) (\\.[0-9][0-9]?[0-9]?[0-9]?[0-9]?[0-9]?[0-9]?|1\\.00?)' # p-value without leading 0, or exactly 1
+additional2 = 'p(.?value)? ?(<|>|=|&lt;|&gt;) ?(0|)\\.[0-9][0-9]?[0-9]?[0-9]?[0-9]?[0-9]?[0-9]?( ?- ?| to )0\\.[0-9][0-9]?[0-9]?[0-9]?[0-9]?[0-9]?' # p-value range
+combs = c(combs, additional, additional2)
 #
 combs = combs[order(-nchar(combs))] # long to short
 threshold_patterns = paste(combs, collapse='|')
@@ -451,7 +455,7 @@ to_remove_italic = paste(to_remove_italic, collapse='|')
 # time/group pattern that gets confused with 0 or 1 as AUC
 months = tolower(c('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'))
 times = c('second','sec','minute','min','hour','hr','day','week','month','year','age')
-groups = c('rater','observer','scheme','top','subject','patient','participant','reader','\\bset','phase','group','judge','round','pod','\\barm','version',
+groups = c('rater','observer','scheme','figure','top','subject','patient','participant','reader','\\bset','phase','group','judge','round','pod','\\barm','version',
            'institution','hospital','clinic','grade','stage','point','radiologist','surgeon','nurse','doctor',
            'assay','type','model','cohort','pol.d','kinase')
 units = c('\\bs\\b', '\\bh\\b', '\\bm\\b', # seconds and hours, metres
@@ -460,7 +464,7 @@ units = c('\\bs\\b', '\\bh\\b', '\\bm\\b', # seconds and hours, metres
           '\\bcc\\b','\\bkhz\\b','mg/dl','pg/ml','μg/ml','microgram') # measurements
 units = unique(units) # in case of accidental duplicates
 groups = unique(groups) # in case of accidental duplicates
-times = c(month, times, groups)
+times = c(months, times, groups)
 times = paste(paste(times, 's?', sep=''), collapse='|') # optional plural and `or`
 units = paste(units, collapse='|')
 times = paste(times, units, sep='|') # add units, not plur

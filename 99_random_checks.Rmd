@@ -6,14 +6,15 @@ output:
 ---
 
 ```{r setup, include=FALSE}
+library(openxlsx) # for exports to Excel
 # called from 5_plot_results.R
 knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE, error=FALSE, comment='', dpi=400)
 options(width=1000) # Wide pages
 options(scipen=999) # avoid scientific presentation
 start = 'https://pubmed.ncbi.nlm.nih.gov/' # start of url
-#TeachingDemos::char2seed('nicole')
-TeachingDemos::char2seed('adrian')
+TeachingDemos::char2seed('rex')
 n_check = 25
+n_check_excel = 100
 ```
 
 
@@ -65,4 +66,56 @@ check1 = filter(results,
 for (k in 1:n_check){
   cat('* ', start, check1$pmid[k], '\n', sep='')
 }  
+```
+
+### Lower intervals results that are exactly 0.57
+
+```{r, results='asis'}
+check1 = filter(results, 
+               #digits == 3, # all digits
+               type == 'Lower',
+               auc == 0.57) %>%
+  sample_n(n_check)
+for (k in 1:n_check){
+  cat('* ', start, check1$pmid[k], '\n', sep='')
+}  
+```
+
+```{r}
+set.seed(1234)
+auc_nums = c(0.7, 0.8, 1) # numbers to check
+people = c('Adrian','Nicole','Rex')
+people_to_sample = rep(people, n_check_excel)
+# select AUCs from results
+check = filter(results, 
+           type == 'Mean',
+           auc %in% auc_nums) %>%
+  mutate(r = runif(n = n())) %>%
+  group_by(auc) %>%
+  arrange(auc, r) %>%
+  slice(1:(n_check_excel*3)) %>%
+  mutate(
+    name = sample(people_to_sample, replace=FALSE, size=(n_check_excel*3)),
+    link = paste('https://pubmed.ncbi.nlm.nih.gov/', pmid, '/', sep=''), 
+    correct = NA, comments= '') %>% # add dummy columns 
+  select(name, link, correct, comments) %>%
+  ungroup()
+
+# now export to Excel
+for (person in people){
+  excel_file = paste('validate/check_', person, '.xlsx', sep='')
+  wb <- createWorkbook()
+  for (this_num in auc_nums){
+    this_check = filter(check, name == person, auc == this_num) 
+    #%>%
+    #  select(-name, -auc)
+    # add to worksheet
+    addWorksheet(wb, sheetName = this_num)
+    sheet_num = which(auc_nums == this_num)
+    writeDataTable(wb, sheet = sheet_num, x = this_check, colNames = TRUE, rowNames = FALSE)
+    setColWidths(wb, sheet = sheet_num, cols = 1:3, widths = c(42, 12, 12))
+  }
+  # save
+  saveWorkbook(wb, excel_file, overwrite = TRUE) 
+}
 ```

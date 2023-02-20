@@ -29,8 +29,11 @@ abstract = str_remove_all(abstract, '\\b[0-9][0-9]?[0-9]? ?: ?[0-9][0-9]?[0-9]?\
 abstract = str_remove_all(abstract, '\\b[0-9][0-9]?[0-9]? ?: ?[0-9][0-9]?[0-9]? ?: ?[0-9][0-9]?[0-9]?\\b') # remove ratio numbers, e.g. '35:0' (from both)
 abstract = str_replace_all(abstract, 'auc.accuracy','auc') # remove problematic pattern
 abstract = str_remove_all(abstract, plus_minus_patterns) # remove numbers after plus/minus (from both)
+abstract = str_replace_all(abstract, '(?<=[0-9]) \\%', '%') # remove space to percent - using look ahead
 abstract = str_replace_all(abstract, '\\bfev.?[0-9]', ' fev') # 
+abstract = str_replace_all(abstract, '[a-z]\\(1\\)', '(one)') # e.g. 19161210
 abstract = str_replace_all(abstract, '1 ige', 'one ige') # 
+abstract = str_replace_all(abstract, 'vs\\. ', 'vs ') # avoid this looking like a full-stop 
 abstract = str_replace_all(abstract, '1 ?- ?auc', 'one - auc') # 
 abstract = str_remove_all(abstract, scientific) # remove scientific numbers
 abstract = str_replace_all(abstract, '\\bic.9(0|5|9)(\\%)?\\b', '95% ci') #  # reverse CI causes confusion

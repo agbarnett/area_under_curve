@@ -67,6 +67,7 @@ rounded = ggplot(data = for_histo, aes(x = binned, y = n, fill = factor(fill), g
                      labels = x.breaks,
                      expand=c(0.01,0))+
   theme_bw()+ # keep minor grid lines
+  scale_y_continuous(expand=c(0, 150))+ # reduce space to x-axis
   xlab('AUC')+
   ylab('Frequency')+
   coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
@@ -151,6 +152,7 @@ rounded_largest = ggplot(data = for_histo, aes(x=binned, y=n, fill=factor(fill))
                      labels = x.breaks,
                      expand=c(0.01,0))+
   theme_bw()+ # keep minor grid lines
+  scale_y_continuous(expand=c(0, 150))+ # reduce space to x-axis
   xlab('AUC')+
   ylab('Frequency')+
   coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
@@ -190,6 +192,81 @@ grid.arrange(rounded_largest, residual_largest, nrow = 2, heights=c(1,0.8))
 # export
 jpeg('figures/histogram_residuals_largest.jpg', width=5, height=8, units='in', res=500)
 grid.arrange(rounded_largest, residual_largest, nrow = 2, heights=c(1,0.8))
+invisible(dev.off())
+```
+
+## Distribution of AUC statistics for lower and upper confidence limits
+
+```{r intervals, include=FALSE}
+### create the data for the rounded histogram
+for_histo = filter(results, 
+              (digits > 1 | auc==1), # avoid spikes due to rounding; include all 1's, even those with 0 decimal places
+              (type %in% c('Lower','Upper'))) %>%
+  mutate(binned = my_bin(auc, digits = 2)) %>% # from lower limit up to upper limit: [lower,upper)
+  group_by(binned, type) %>%
+  tally() %>%
+  ungroup() %>%
+  mutate(fill = ifelse(binned %in% colour, 1, 2))
+
+# smooth Poisson model, one for each limit
+df = 4
+for_histo_lower = filter(for_histo,type=='Lower')
+for_histo_upper = filter(for_histo,type=='Upper')
+model_lower = glm(n ~ ns(binned, df = df), data = for_histo_lower, family=poisson())
+model_upper = glm(n ~ ns(binned, df = df), data = for_histo_upper, family=poisson())
+#
+f_lower = fitted(model_lower)
+f_upper = fitted(model_upper)
+for_histo_lower = cbind(for_histo_lower, f_lower) %>%
+  rename('f' = 'f_lower')
+for_histo_upper = cbind(for_histo_upper, f_upper)%>%
+  rename('f' = 'f_upper')
+for_histo = bind_rows(for_histo_lower, for_histo_upper) %>%
+  mutate(residual = n - f,
+         group = 1) %>% # to avoid separate dotted lines by fill
+  arrange(binned)
+
+# histogram
+rounded_intervals = ggplot(data = for_histo, aes(x = binned, y = n, fill = factor(fill)))+
+  geom_bar(stat='identity', col='grey22', size=0.1)+ # size for thinner lines around bars
+  geom_line(data = for_histo, aes(x=binned, y=f, group = group), lty=2)+ # smoothed
+  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
+  scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
+                     labels = x.breaks,
+                     expand=c(0.01,0))+
+  theme_bw()+ # keep minor grid lines
+  xlab('AUC')+
+  ylab('Frequency')+
+  scale_y_continuous(expand=c(0, 150))+ # reduce space to x-axis
+  coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
+  theme(legend.position = 'none')+
+  facet_wrap(~type, scales='free_y')
+
+## residuals
+residual_intervals = ggplot(data = for_histo, aes(x = binned, y = residual, fill = factor(fill)))+
+  geom_bar(stat='identity', col='grey22', size=0.1)+
+  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
+  scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
+                     labels = x.breaks,
+                     expand=c(0.01,0))+
+  theme_bw()+ # keep minor grid lines
+  xlab('AUC')+
+  ylab('Residual (observed - expected)')+
+  coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
+  theme(legend.position = 'none')+
+  facet_wrap(~type)
+```
+
+```{r combined_intervals, fig.height = 8, fig.width = 7}
+## combined plot
+rounded_intervals = rounded_intervals + ggtitle('Histogram') +
+  xlab('')
+#  theme(margin(t=0, r=0, b=0, l=0, unit='pt')) # Not yet checked
+residual_intervals = residual_intervals + ggtitle('Residual')
+grid.arrange(rounded_intervals, residual_intervals, nrow = 2, heights=c(1,0.8))
+# export
+jpeg('figures/histogram_residuals_intervals.jpg', width=6, height=8, units='in', res=500)
+grid.arrange(rounded_intervals, residual_intervals, nrow = 2, heights=c(1,0.8))
 invisible(dev.off())
 ```
 
@@ -263,8 +340,8 @@ This plot combines the "mean" and "pair" types.
 
 ```{r}
 ### create the data for the rounded histogram
-colour = seq(0.54, 0.58, by = 0.01)
-x.breaks = colour
+colour.narrow = seq(0.54, 0.58, by = 0.01)
+x.breaks.narrow = colour.narrow
 for_histo = filter(results, 
                    auc>=0.54, auc<=0.58, # narrow range
               !(type %in% c('Difference','Lower','Upper'))) %>%
@@ -278,8 +355,8 @@ for_histo = filter(results,
 rounded = ggplot(data = for_histo, aes(x = binned, y = n, fill = factor(fill)))+
   geom_bar(stat='identity', col='grey22', size=0.1)+ # size for thinner lines around bars
   scale_fill_manual(NULL, values=c('dark red','pink','red'))+
-  scale_x_continuous(breaks = x.breaks + (0.001)/2, # nudge breaks to top of bar
-                     labels = x.breaks,
+  scale_x_continuous(breaks = x.breaks.narrow + (0.001)/2, # nudge breaks to top of bar
+                     labels = x.breaks.narrow,
                      expand=c(0.01,0))+
   theme_bw()+ # keep minor grid lines
   xlab('AUC')+
@@ -317,7 +394,6 @@ tplot = ggplot(data = to_plot, aes(x = year, y=value, group = auc, col=auc)) +
   xlab('Year')+
   g.theme
 tplot
-
 ```
 
 ## Distribution of AUC statistics by source

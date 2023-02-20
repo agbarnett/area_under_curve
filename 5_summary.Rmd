@@ -58,15 +58,17 @@ tplot1 = ggplot(data=for_plot, aes(x = year, y = p))+
   g.theme+
   xlab('Year')+
   ylab('Proportion of abstracts with an AUC statistic')+
-  coord_cartesian(xlim=c(1955, NA))+
+  coord_cartesian(xlim=c(1985, NA))+
   ggtitle('Proportion')
 tplot2 = ggplot(data=for_plot, aes(x = year, y = r))+
   geom_line(size=1.05, col='dark red')+
   g.theme+
   xlab('Year')+
   ylab('Number of abstracts with an AUC statistic')+
-  coord_cartesian(xlim=c(1955, NA))+
+  coord_cartesian(xlim=c(1985, NA))+
   ggtitle('Number')
+# show on screen
+grid.arrange(tplot2, tplot1, ncol=2)
 # export
 jpeg('figures/trend.jpg', width=5, height=4, units='in', res=500)
 grid.arrange(tplot2, tplot1, ncol=2)
@@ -79,6 +81,8 @@ first = filter(abstracts, any_auc==TRUE) %>%
 ```
 
 The plots shows the number and proportion of abstracts over time with at least one AUC statistic.
+
+The time axis starts in 1985.
 
 ## Frequency table of statistics types
 

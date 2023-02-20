@@ -8,7 +8,7 @@ library(stringr)
 here = getwd()
 setwd("//hpc-fs/barnetta/auc/processed") # move to lyra where processed files are
 to_combine = dir()
-# check that all files exist - see 4_check.R
+# check that all files exist - see 4_check_raw.R
 
 # loop through files (takes a while)
 results = excluded = abstracts = NULL
