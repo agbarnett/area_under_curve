@@ -1,7 +1,6 @@
 #review_example_data.R
 source('99_functions.R')
 library(tidyverse)
-library(tidytext)
 #load data
 
 load('example data/unprocessed.pubmed.baseline.0833.RData')

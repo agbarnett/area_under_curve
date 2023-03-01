@@ -106,9 +106,8 @@ for (person in people){
   excel_file = paste('validate/check_', person, '.xlsx', sep='')
   wb <- createWorkbook()
   for (this_num in auc_nums){
-    this_check = filter(check, name == person, auc == this_num) 
-    #%>%
-    #  select(-name, -auc)
+    this_check = filter(check, name == person, auc == this_num) %>%
+      select(-name, -auc)
     # add to worksheet
     addWorksheet(wb, sheetName = this_num)
     sheet_num = which(auc_nums == this_num)

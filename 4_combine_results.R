@@ -7,15 +7,18 @@ library(stringr)
 # get list of files to combine
 here = getwd()
 setwd("//hpc-fs/barnetta/auc/processed") # move to lyra where processed files are
-to_combine = dir()
+to_combine_all = dir()
+to_combine = to_combine_all[!str_detect(to_combine_all, 'sensitivity')]
+to_combine_sensitivity = to_combine_all[str_detect(to_combine_all, 'sensitivity')]
 # check that all files exist - see 4_check_raw.R
 
 # loop through files (takes a while)
 results = excluded = abstracts = NULL
-for (file in to_combine){
+for (file in to_combine_sensitivity){ # change to to_combine or to_combine_sensitivity
   load(file)
   #
-  file_num = str_remove_all(file, 'pubmed\\.|\\.RData')
+  file_num = str_remove_all(file, 'pubmed\\.|sensitivity\\.|\\.RData')
+  if(is.null(abstract.data)==TRUE){next}
   abstract.data = mutate(abstract.data, file = file_num) # add file number, useful for checking odd results
   # date fix
   if(class(abstract.data$date) == 'numeric'){
@@ -94,4 +97,6 @@ results = mutate(results,
                  type = factor(type, levels=levels, labels=labels))
 
 # save
-save(results, excluded, abstracts, file = 'data/analysis_ready.RData')
+ofile = 'data/analysis_ready.RData'
+ofile = 'data/analysis_ready_sensitivity.RData'
+save(results, excluded, abstracts, file = ofile)

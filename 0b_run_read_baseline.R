@@ -3,7 +3,7 @@
 # read and process the XML data
 # version using data that has been manually downloaded from ftp survey (because batch process using API was creating gaps)
 # February 2023
-load('../narrator/data/countries.RData') # for country affiliation
+load('data/countries.RData') # for country affiliation
 #source('0_my_pubmed_key_do_not_share.R') # not needed
 source('1_patterns.R') # for PK studies
 

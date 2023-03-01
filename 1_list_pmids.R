@@ -16,4 +16,3 @@ for (file in files_to_loop){  #
 #
 save(pmid_list, file='data/pmid_list.RData')
 
-

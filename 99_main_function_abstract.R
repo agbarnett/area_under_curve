@@ -5,11 +5,20 @@
 # Feb 2023
 
 # #
-process_abstract = function(indata, k){
+process_abstract = function(indata, k,
+                            results_section = FALSE){ # sensitivity analysis to just look at results section
 
 # process the abstract
   mesh = tolower(indata$mesh[k])
   abstract = tolower(indata$abstract[k]) # switch to lower case
+  
+  # restrict the abstract to just the methods section
+  if(results_section==TRUE){
+    start = str_locate(abstract, 'results_start')
+    end = str_locate(abstract, 'results_end')
+    if(is.na(end[1])==TRUE){end[1] = nchar(abstract)} # can be missing when the results are the last section
+    abstract = str_sub(abstract, start[2]+1, end[1]-1)
+  }
 
 # remove double spaces; and spaces at start and end
 abstract = str_squish(abstract)

@@ -12,8 +12,8 @@ library(stringr)
 library(textclean) # for replace non-ASCII
 library(easyPubMed) # for new_PM_df which imports XML into R
 #source('0_my_pubmed_key_do_not_share.R') # not needed, files are already downloaded
-source('../narrator/99_table_articles_byAuth_adapted.R') # use my adapted versions of this code
-source('../narrator/99_article_to_df_adapted.R') # faster without author data
+source('99_table_articles_byAuth_adapted.R') # use my adapted versions of this code
+source('99_article_to_df_adapted.R') # faster without author data
 # see https://cran.r-project.org/web/packages/easyPubMed/vignettes/getting_started_with_easyPubMed.html
 
 # two key locations

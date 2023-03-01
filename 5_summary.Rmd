@@ -31,7 +31,7 @@ with_year = select(abstracts, pmid, year) %>%
 
 ## Exclusions
 
-Flow chart of excluded abstracts (to do).
+#### Table of exclusions
 
 ```{r exclude}
 # count exclusions over all files
@@ -42,6 +42,15 @@ ftab = flextable(tab) %>%
   autofit() 
 ftab
 ```
+
+#### Flow chart of excluded abstracts 
+
+```{r flow, out.width='80%'}
+# from 5_flow_chart.R'
+knitr::include_graphics('figures/consort.flow.jpg')
+```
+
+
 
 ## Abstracts including an AUC-statistic over time
 

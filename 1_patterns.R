@@ -454,7 +454,7 @@ to_remove_italic = paste(to_remove_italic, collapse='|')
 
 # time/group pattern that gets confused with 0 or 1 as AUC
 months = tolower(c('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'))
-times = c('second','sec','minute','min','hour','hr','day','week','month','year','age')
+times = c('second','sec','minute','min','hour','hr','day','week','month','year','age','cycle')
 groups = c('rater','observer','scheme','figure','top','subject','patient','participant','reader','\\bset','phase','group','judge','round','pod','\\barm','version',
            'institution','hospital','clinic','grade','stage','point','radiologist','surgeon','nurse','doctor',
            'assay','type','model','cohort','pol.d','kinase')
