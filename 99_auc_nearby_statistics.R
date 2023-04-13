@@ -2,6 +2,7 @@
 # AUC split from nearby list of statistics
 # useful for "respectively"
 # December 2022
+library(stringr)
 
 # use for_auc_clean here:
 aucs_in = str_detect(for_auc_clean, pattern = paste(auc.words, collapse='|'))

@@ -1,6 +1,7 @@
 # 99_auc_percent.R
 # find AUCs as a percent based on nearby words
 # Jan 2023
+library(stringr)
 
 # first remove CIs
 for_percent = str_remove_all(for_auc_clean, pattern = '9(0|5|9)\\%.confidence.interval|9(0|5|9)\\%.?ci')

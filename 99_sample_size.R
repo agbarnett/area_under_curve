@@ -2,6 +2,7 @@
 # extract estimate of the sample size from abstract
 # called by 99_main_function_abstract.R
 # December 2022
+library(stringr)
 
 sample_size = str_extract_all(tolower(abstract), sample_size_patterns)[[1]]
 if(length(sample_size) > 0){

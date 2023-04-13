@@ -1,7 +1,7 @@
 # 98_testing.R
 # testing pattern matches
 # January 2023
-
+library(stringr)
 source('1_patterns.R')
 
 

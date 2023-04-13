@@ -3,6 +3,7 @@
 # 1. next number in sentence
 # 2. nearby words
 # December 2022
+library(stringr)
 
 ## part 1: find AUC statistics based on next number in sentence
 aucs2 = NULL

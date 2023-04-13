@@ -1,6 +1,7 @@
 # 99_auc_respectively.R
 # code to extract AUC in a long string of numbers with 'respectively'
 # December 2022
+library(stringr)
 
 # scan for "respectively"
 auc_respectively = NULL

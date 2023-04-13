@@ -1,6 +1,7 @@
 # 99_auc_confidence_intervals.R
 # look for AUC confidence intervals - two parts
 # December 2022
+library(stringr)
 
 ## part 1, pattern like 0.xx (0.xx-0.xx) with matching AUC-text from same sentence
 # not working perfectly, is sometimes flagging second two numbers

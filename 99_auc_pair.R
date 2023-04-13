@@ -1,7 +1,8 @@
 # 99_auc_pair.R
 # extract AUCs that are in pairs; two attempts
 # January 2023
-#
+library(stringr)
+
 
 # a) AUC numbers
 all_auc_words = paste(auc.words.no.breaks, collapse='|')
