@@ -19,6 +19,7 @@ empty = filter(excluded_totals, reason == 'Empty abstract') %>% pull(total)
 not_english = filter(excluded_totals, reason == 'Not English') %>% pull(total)
 pk = filter(excluded_totals, reason == 'PK') %>% pull(total)
 meta = filter(excluded_totals, reason == 'Meta-analysis') %>% pull(total)
+#is_one = filter(results, auc==1) %>% nrow()
 
 # remainder
 n_remain = n_screened - sum(excluded_totals$total)
@@ -29,6 +30,7 @@ l2 = paste('Excluded\nempty (N=', format(empty, big.mark=','), ')', sep='') #
 l3 = paste('Excluded\nnot in English (N=', format(not_english, big.mark=','), ')', sep='') # 
 l4 = paste('Excluded\nPK study (N=', format(pk, big.mark=','), ')', sep='') # 
 l5 = paste('Excluded\nmeta-analysis (N=', format(meta, big.mark=','), ')', sep='') # 
+#l6 = paste('Excluded\nOnly AUC was 1 (N=', format(is_one, big.mark=','), ')', sep='') # do not include, paper was still analysed
 l6 = paste('Analysed\n(N=', format(n_remain, big.mark=','), ')', sep='') # 
 null = ''
 labels = c(l1, l2, l3, l4, l5, l6, null, null, null, null)
@@ -40,19 +42,19 @@ n.labels = length(labels)
 frame = read.table(sep='\t', stringsAsFactors=F, skip=0, header=T, text='
 i	x	y	box.col	box.type	box.prop	box.size
 1	0.5	0.94	white	square	0.34	0.135
-2	0.75	0.8	white	square	0.34	0.15
-3	0.75	0.63	white	square	0.34	0.15
-4	0.75	0.47	white	square	0.34	0.15
-5	0.75	0.3	white	square	0.34	0.15
-6	0.5	0.15	white	square	0.34	0.13
-7	0.5	0.8	transparent	square	0.001	0.001
-8	0.5	0.63	transparent	square	0.001	0.001
-9	0.5	0.47	transparent	square	0.001	0.001
-10	0.5	0.3	transparent	square	0.001	0.001')
+2	0.75	0.8	white	square	0.33	0.15
+3	0.75	0.64	white	square	0.33	0.15
+4	0.75	0.48	white	square	0.33	0.15
+5	0.75	0.31	white	square	0.33	0.15
+7	0.5	0.15	white	square	0.34	0.13
+8	0.5	0.8	transparent	square	0.0001	0.0001
+9	0.5	0.64	transparent	square	0.0001	0.0001
+10	0.5	0.48	transparent	square	0.0001	0.0001
+11	0.5	0.31	transparent	square	0.0001	0.0001')
 # positions:
 pos = as.matrix(subset(frame, select=c(x, y)))
 # joins between boxes
-M = matrix(nrow = n.labels, ncol = n.labels, byrow = TRUE, data = 0)
+M = matrix(nrow = nrow(frame), ncol = nrow(frame), byrow = TRUE, data = 0)
 M[6, 1] = "' '"
 M[2, 7] = "' '"
 M[3, 8] = "' '"
@@ -60,7 +62,7 @@ M[4, 9] = "' '"
 M[5, 10] = "' '"
 M[6, 10] = "' '"
 # colours
-tcol = rep('black', n.labels)
+tcol = rep('black', nrow(frame))
 
 ## make figure 
 jpeg('figures/consort.flow.jpg', width=7.5, height=7, units='in', res=400, quality = 100)

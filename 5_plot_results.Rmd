@@ -1,7 +1,7 @@
 ---
 title: "Plots for AUC statistics"
 author: "Adrian Barnett"
-date: "2023-02-10"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: word_document
 ---
 
@@ -11,6 +11,7 @@ library(dplyr)
 library(tidyr)
 library(stringr)
 library(splines) # for smooth spline
+library(ciTools) # for confidence intervals for glm
 # graphics
 library(ggplot2)
 library(gridExtra)
@@ -21,16 +22,52 @@ source('99_functions.R')
 # get the data
 load('data/analysis_ready.RData') # from 4_combine_results.R
 
+# remove AUC of exactly 1 because of accuracy issues; go to 0.99 because last interval is (0.99, 1]
+results = filter(results, auc <= 0.99)
+
 # breaks for histograms
-breaks = seq(0, 1.01, 0.01) # up to 1.01 to include 1
-# which bars to colour
-colour = c(0.7, 0.8, 0.9, 1)
-# x-axis
+breaks = seq(0, 1.00, 0.01) # 
+# which AUC bars to colour
+colour = c(0.7, 0.8, 0.9)
+# x-axis for AUC
 x.breaks = c(0, seq(0.5,1,0.1))
 minor_breaks = seq(0.05,0.95,0.1)
-# lower limit for plots
+# lower AUC limit for plots
 lower_auc_plot = 0.48
 ```
+
+## Types
+
+Table of AUC types, simplified to means or intervals.
+
+```{r}
+library(janitor)
+tab = mutate(results, type = as.character(type)) %>%
+  filter(type != 'Difference') %>%
+  mutate(type = ifelse(type=='Pair', 'Mean', type),
+         type = ifelse(type=='Lower', 'CI', type),
+         type = ifelse(type=='Upper', 'CI', type)) %>%
+  tabyl(type) %>%
+  adorn_totals()
+flextable(tab) %>%
+  theme_box() %>%
+  autofit()
+```
+
+## Dates
+
+```{r}
+stats = mutate(results, year = as.numeric(format(date, '%Y'))) %>%
+  summarise(median = median(year),
+            q1 = quantile(year, 0.25),
+            q3 = quantile(year, 0.75))
+flextable(stats) %>%
+  theme_box() %>%
+  autofit()
+```
+
+Summary statistics on included statistics as years.
+
 
 ## Histogram
 
@@ -40,28 +77,34 @@ The results are binned using a (lower, upper] limit. For example, (0.80, 0.81] i
 
 ```{r}
 ### create the data for the rounded histogram
-for_histo = filter(results, 
-              (digits > 1 | auc==1), # avoid spikes due to rounding; include all 1's, even those with 0 decimal places
-              !(type %in% c('Difference','Lower','Upper'))) %>%
-  mutate(binned = my_bin(auc, digits = 2)) %>% # from lower limit up to upper limit: [lower,upper)
-  group_by(binned) %>%
+uncounted = filter(results, 
+              !(type %in% c('Difference','Lower','Upper'))) 
+one_digit = filter(uncounted, 
+                   auc%in% seq(0,0.9,0.1),
+                   digits == 1) %>% # count use of single digits
+  nrow()
+one_digit_percent = 100*one_digit/nrow(uncounted)
+uncounted = filter(uncounted, digits > 1) %>% # avoid spikes due to rounding
+  mutate(binned = my_bin(auc, digits = 2)) # from lower limit up to upper limit: (lower,upper]
+for_histo = group_by(uncounted, binned) %>%
   tally() %>%
   ungroup() %>%
   mutate(fill = ifelse(binned %in% colour, 1, 2))
 
 # smooth Poisson model
-df = 4
+df = 4 # degrees of freedom for smooth
 model = glm(n ~ ns(binned, df = df), data = for_histo, family=poisson())
-f = fitted(model)
-for_histo = cbind(for_histo, f) %>%
-  mutate(residual = n - f,
-         group = 1) %>% # to avoid separate dotted lines by fill
+ci = add_ci(for_histo, model, names = c("lower", "upper"), alpha = 0.05) %>%
+  mutate(group = 1, # to avoid separate dotted lines by fill
+         residual = n - pred) %>% 
   arrange(binned)
 
 # histogram
-rounded = ggplot(data = for_histo, aes(x = binned, y = n, fill = factor(fill), group = group))+
+rounded = ggplot(data = ci, aes(x = binned, y = n, fill = factor(fill), group = group))+
   geom_bar(stat='identity', col='grey22', size=0.1)+ # size for thinner lines around bars
-  geom_line(data = for_histo, aes(x=binned, y=f, group = group), lty=2)+ # smoothed
+  geom_line(data = ci, aes(x=binned, y=pred, group = group), lty=2)+ # smoothed
+  #geom_line(data = ci, aes(x=binned, y=lower, group = group), lty=2)+ # CI for smooth
+  #geom_line(data = ci, aes(x=binned, y=upper, group = group), lty=2)+ # CI for smooth
   scale_fill_manual(NULL, values=c('dark red','pink','red'))+
   scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
                      labels = x.breaks,
@@ -81,12 +124,14 @@ invisible(dev.off())
 
 The dotted line shows a smooth natural spline with `r df` degrees of freedom fitted to the counts in each bin.
 
+There were `r one_digit` (`r round(one_digit_percent, 1)`) values excluded because they were given to just 1 decimal place.
+
 #### Residual plot
 
 The plot below is the residuals from the smooth fit to the distribution.
 
 ```{r}
-residual = ggplot(data = for_histo, aes(x = binned, y = residual, fill = factor(fill)))+
+residual = ggplot(data = ci, aes(x = binned, y = residual, fill = factor(fill)))+
   geom_bar(stat='identity', col='grey22', size=0.1)+
   scale_fill_manual(NULL, values=c('dark red','pink','red'))+
   scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
@@ -129,24 +174,24 @@ largest = group_by(results, pmid) %>%
   ungroup()
 
 ### rounded histogram
-for_histo = mutate(largest, binned = my_bin(auc, digits = 2)) %>% # from lower limit up to upper limit: [lower,upper)
+for_histo_largest = mutate(largest, binned = my_bin(auc, digits = 2)) %>% # from lower limit up to upper limit: [lower,upper)
   group_by(binned) %>%
   tally() %>%
   ungroup() %>%
   mutate(fill = ifelse(binned %in% colour, 1, 2))
 
 # smooth Poisson model
-model = glm(n ~ ns(binned, df = df), data = for_histo, family=poisson())
+model = glm(n ~ ns(binned, df = df), data = for_histo_largest, family=poisson())
 f = fitted(model)
-for_histo = cbind(for_histo, f) %>%
+for_histo_largest = cbind(for_histo_largest, f) %>%
   mutate(residual = n - f,
          group = 1) %>% # to avoid separate dotted lines by fill
   arrange(binned)
 
 # plot
-rounded_largest = ggplot(data = for_histo, aes(x=binned, y=n, fill=factor(fill)))+
+rounded_largest = ggplot(data = for_histo_largest, aes(x=binned, y=n, fill=factor(fill)))+
   geom_bar(stat='identity', col='grey22', size=0.1)+ # size for thinner lines around bars
-  geom_line(data = for_histo, aes(x=binned, y=f, group = group), lty=2)+ # smoothed
+  geom_line(data = for_histo_largest, aes(x=binned, y=f, group = group), lty=2)+ # smoothed
   scale_fill_manual(NULL, values=c('dark red','pink','red'))+
   scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
                      labels = x.breaks,
@@ -168,7 +213,7 @@ invisible(dev.off())
 
 ```{r, include=FALSE}
 ##
-residual_largest = ggplot(data = for_histo, aes(x = binned, y = residual, fill = factor(fill)))+
+residual_largest = ggplot(data = for_histo_largest, aes(x = binned, y = residual, fill = factor(fill)))+
   geom_bar(stat='identity', col='grey22', size=0.1)+
   scale_fill_manual(NULL, values=c('dark red','pink','red'))+
   scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
@@ -199,8 +244,7 @@ invisible(dev.off())
 
 ```{r intervals, include=FALSE}
 ### create the data for the rounded histogram
-for_histo = filter(results, 
-              (digits > 1 | auc==1), # avoid spikes due to rounding; include all 1's, even those with 0 decimal places
+for_histo_ci = filter(results, digits > 1, # avoid spikes due to rounding; include all 1's, even those with 0 decimal places
               (type %in% c('Lower','Upper'))) %>%
   mutate(binned = my_bin(auc, digits = 2)) %>% # from lower limit up to upper limit: [lower,upper)
   group_by(binned, type) %>%
@@ -210,8 +254,8 @@ for_histo = filter(results,
 
 # smooth Poisson model, one for each limit
 df = 4
-for_histo_lower = filter(for_histo,type=='Lower')
-for_histo_upper = filter(for_histo,type=='Upper')
+for_histo_lower = filter(for_histo_ci, type=='Lower')
+for_histo_upper = filter(for_histo_ci, type=='Upper')
 model_lower = glm(n ~ ns(binned, df = df), data = for_histo_lower, family=poisson())
 model_upper = glm(n ~ ns(binned, df = df), data = for_histo_upper, family=poisson())
 #
@@ -221,15 +265,15 @@ for_histo_lower = cbind(for_histo_lower, f_lower) %>%
   rename('f' = 'f_lower')
 for_histo_upper = cbind(for_histo_upper, f_upper)%>%
   rename('f' = 'f_upper')
-for_histo = bind_rows(for_histo_lower, for_histo_upper) %>%
+for_histo_ci = bind_rows(for_histo_lower, for_histo_upper) %>%
   mutate(residual = n - f,
          group = 1) %>% # to avoid separate dotted lines by fill
   arrange(binned)
 
 # histogram
-rounded_intervals = ggplot(data = for_histo, aes(x = binned, y = n, fill = factor(fill)))+
+rounded_intervals = ggplot(data = for_histo_ci, aes(x = binned, y = n, fill = factor(fill)))+
   geom_bar(stat='identity', col='grey22', size=0.1)+ # size for thinner lines around bars
-  geom_line(data = for_histo, aes(x=binned, y=f, group = group), lty=2)+ # smoothed
+  geom_line(data = for_histo_ci, aes(x=binned, y=f, group = group), lty=2)+ # smoothed
   scale_fill_manual(NULL, values=c('dark red','pink','red'))+
   scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
                      labels = x.breaks,
@@ -243,7 +287,7 @@ rounded_intervals = ggplot(data = for_histo, aes(x = binned, y = n, fill = facto
   facet_wrap(~type, scales='free_y')
 
 ## residuals
-residual_intervals = ggplot(data = for_histo, aes(x = binned, y = residual, fill = factor(fill)))+
+residual_intervals = ggplot(data = for_histo_ci, aes(x = binned, y = residual, fill = factor(fill)))+
   geom_bar(stat='identity', col='grey22', size=0.1)+
   scale_fill_manual(NULL, values=c('dark red','pink','red'))+
   scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
@@ -342,7 +386,7 @@ This plot combines the "mean" and "pair" types.
 ### create the data for the rounded histogram
 colour.narrow = seq(0.54, 0.58, by = 0.01)
 x.breaks.narrow = colour.narrow
-for_histo = filter(results, 
+for_histo_detail = filter(results, 
                    auc>=0.54, auc<=0.58, # narrow range
               !(type %in% c('Difference','Lower','Upper'))) %>%
   mutate(binned = my_bin(auc, digits = 3)) %>% # from lower limit up to upper limit: [lower,upper)
@@ -352,7 +396,7 @@ for_histo = filter(results,
   mutate(fill = ifelse(binned %in% colour, 1, 2)) # not fully working, need fuzzier matching
 
 # histogram
-rounded = ggplot(data = for_histo, aes(x = binned, y = n, fill = factor(fill)))+
+rounded = ggplot(data = for_histo_detail, aes(x = binned, y = n, fill = factor(fill)))+
   geom_bar(stat='identity', col='grey22', size=0.1)+ # size for thinner lines around bars
   scale_fill_manual(NULL, values=c('dark red','pink','red'))+
   scale_x_continuous(breaks = x.breaks.narrow + (0.001)/2, # nudge breaks to top of bar
@@ -396,7 +440,7 @@ tplot = ggplot(data = to_plot, aes(x = year, y=value, group = auc, col=auc)) +
 tplot
 ```
 
-## Distribution of AUC statistics by source
+## Distributions of AUC statistics by source
 
 Here we check if there is a difference in the distributions according to how the AUC statistic was sourced, e.g., as a confidence interval compared with a "nearby" statistic.
 
@@ -411,3 +455,60 @@ bplot = ggplot(data = to_plot, aes(x=factor(source), y=auc))+
   coord_flip()
 bplot
 ```
+
+## Numbers of other AUC statistics in each band
+
+```{r}
+counts = NULL
+for (bin in unique(for_histo$binned)){
+  just_pmid = filter(uncounted, binned == bin) %>%
+    select(pmid) %>%
+    unique()
+  all_for_pmid = left_join(just_pmid, uncounted, by='pmid') %>%
+    filter(binned != bin) %>%
+    group_by(pmid) %>%
+    summarise(n = n(), mean = mean(binned)) %>% # by PMID
+    ungroup() %>%
+    summarise(meann = mean(n), meana = mean(mean)) %>% # over average per bin
+    mutate(binned = bin)
+  counts = bind_rows(counts, all_for_pmid)
+}
+counts = filter(counts, binned > 0.47)
+
+# plot of mean numbers
+number_line = ggplot(data = counts, aes(x = binned, y = meann))+
+  geom_line(size=1.05, col='goldenrod1')+
+  scale_x_continuous(breaks = x.breaks,
+                     labels = x.breaks,
+                     expand=c(0.01,0))+
+  theme_bw()+ # keep minor grid lines
+  xlab('AUC')+
+  ylab('Mean number of other AUC statistics per abstract')+
+  coord_cartesian(xlim=c(lower_auc_plot, NA)) + # focus on near 0.5 and above
+  g.theme
+number_line
+# export
+jpeg('figures/numbers_others.jpg', width=5, height=4, units='in', res=500)
+print(number_line)
+invisible(dev.off())
+```
+
+The plot above shows the number of other AUC statistics per abstract for each AUC bin. Abstracts that include a lower AUC statistic tend to have more AUC statistics on average.
+
+```{r}
+# line plot of means
+mean_binned = ggplot(data = counts, aes(x = binned, y = meana))+
+  geom_line(size=1.05, col='dodgerblue')+
+  scale_x_continuous(breaks = x.breaks,
+                     labels = x.breaks,
+                     expand=c(0.01,0))+
+  theme_bw()+ # keep minor grid lines
+ # scale_y_continuous(expand=c(0, 150))+ # reduce space to x-axis
+  xlab('AUC')+
+  ylab('Average of other AUC statistics')+
+  coord_cartesian(xlim=c(lower_auc_plot, NA)) + # focus on near 0.5 and above
+  g.theme
+mean_binned
+```
+
+The other AUC statistics in an abstract tended to be larger when there was a larger AUC statistic included. This is probably because similar models tended to be compared.

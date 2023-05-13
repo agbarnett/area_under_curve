@@ -6,6 +6,7 @@ library(ggplot2)
 g.theme = theme_bw() + theme(panel.grid.minor = element_blank())
 library(tidyr)
 library(purrr)
+library(broom)
 library(dplyr)
 library(stringr)
 library(vecsets) # for vintersects
@@ -52,6 +53,7 @@ for (k in 1:n_sample){
   }
   algorithm_data = bind_rows(algorithm_data, frame)
 }
+save(algorithm_data, file='results/validate_algorithm.RData') # to save time
 
 ## part 3: merge hand-entered data with algorithm data and then compare 
 to_compare = full_join(random_selection, algorithm_data, by='pmid') %>%
@@ -187,3 +189,16 @@ mmodel = glm(auc ~ type, data = for_plot)
 summary(mmodel)
 hist(resid(mmodel))
 # differences mostly due to 33706377 which has a `area under the precision-recall curve`
+tidy(mmodel, conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high)
+
+## compare numbers where there was no AUC in the abstract and the algorithm agreed that there was no AUC
+for_tab = mutate(to_compare, 
+       AUC = is.na(AUC),
+       actual_AUC = is.na(actual_AUC))
+library(janitor)
+tabyl(for_tab, AUC, actual_AUC) %>%
+  adorn_totals() %>%
+  adorn_percentages("col") %>%
+  adorn_pct_formatting(digits = 0) %>%
+  adorn_ns() 

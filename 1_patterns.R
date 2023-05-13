@@ -457,7 +457,7 @@ months = tolower(c('January', 'February', 'March', 'April', 'May', 'June', 'July
 times = c('second','sec','minute','min','hour','hr','day','week','month','year','age','cycle')
 groups = c('rater','observer','scheme','figure','top','subject','patient','participant','reader','\\bset','phase','group','judge','round','pod','\\barm','version',
            'institution','hospital','clinic','grade','stage','point','radiologist','surgeon','nurse','doctor',
-           'assay','type','model','cohort','pol.d','kinase')
+           'assay','method','type','model','cohort','pol.d','kinase','sample')
 units = c('\\bs\\b', '\\bh\\b', '\\bm\\b', # seconds and hours, metres
           '\\bkpa\\b','\\bmg\\b','\\bng\\b','ng/mg','\\bml\\b','\\bkg\\b','\\bmcg\\b','\\bμg\\b','\\bl\\b','\\bmmol\\b',
           '\\bmole\\b', 'degrees', '\\bhz\\b', '\\bm/s\\b', '\\bcd\\b',

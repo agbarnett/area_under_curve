@@ -27,6 +27,8 @@ abstracts = mutate(abstracts, year = as.numeric(format(date, '%Y')))
 with_year = select(abstracts, pmid, year) %>%
   right_join(results, by='pmid') %>%
   mutate(yearc = year - 2000) # centre year for regression model
+# remove AUC of exactly 1 because of accuracy issues; go to 0.99 because last interval is (0.99, 1]
+results = filter(results, auc < 0.99)
 ```
 
 ## Exclusions
@@ -145,7 +147,7 @@ ftab = flextable(stats) %>%
 ftab
 ```
 
-#### Histogram of the number of AUC statistics
+#### Bar chart of the number of AUC statistics
 
 ```{r}
 hplot = ggplot(data = tab, aes(x=n))+
@@ -183,9 +185,6 @@ hplot
 
 There's a strong positive skew, with most abstracts giving a few AUC-statistics, whilst a small number of abstracts presented many statistics.
 
-## Use of confidence intervals over time
-
-To do.
 
 ## Width of confidence intervals over time
 

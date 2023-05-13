@@ -14,7 +14,7 @@ to_combine_sensitivity = to_combine_all[str_detect(to_combine_all, 'sensitivity'
 
 # loop through files (takes a while)
 results = excluded = abstracts = NULL
-for (file in to_combine_sensitivity){ # change to to_combine or to_combine_sensitivity
+for (file in to_combine){ # change to to_combine or to_combine_sensitivity
   load(file)
   #
   file_num = str_remove_all(file, 'pubmed\\.|sensitivity\\.|\\.RData')
@@ -98,5 +98,5 @@ results = mutate(results,
 
 # save
 ofile = 'data/analysis_ready.RData'
-ofile = 'data/analysis_ready_sensitivity.RData'
+ofile = 'data/analysis_ready_sensitivity.RData' # just methods section
 save(results, excluded, abstracts, file = ofile)
