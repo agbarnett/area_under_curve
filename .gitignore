@@ -54,5 +54,6 @@ data/
 raw/
 figures/
 processed/
+code_dumped/
 *.docx
 0_my_pubmed_key_do_not_share.R

@@ -1,6 +1,6 @@
 # 1_find_auc_sensitivity.R
 # find and extract the AUC statistics in the pubmed abstracts
-# sensitivity analysis using only abstracts with a methods section
+# sensitivity analysis using only abstracts with a results section
 # moved to lyra
 # Feb 2023
 library(stringr)
