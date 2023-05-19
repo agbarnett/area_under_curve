@@ -17,8 +17,8 @@ source('99_article_to_df_adapted.R') # faster without author data
 # see https://cran.r-project.org/web/packages/easyPubMed/vignettes/getting_started_with_easyPubMed.html
 
 # two key locations
-home_location = "U:/Research/Projects/ihbi/aushsi/aushsi_barnetta/meta.research/text.mining/AUC"
-download_location = "//hpc-fs/barnetta/pubmed_baseline"
+home_location = "U:/Research/Projects/ihbi/aushsi/aushsi_barnetta/meta.research/text.mining/AUC" # change to your own location
+download_location = "//hpc-fs/barnetta/pubmed_baseline" # change to your own location; data downloaded from ftp://ftp.ncbi.nlm.nih.gov/pubmed/baseline/
 
 # big loop through files
 files = dir(download_location, pattern='^pubmed')

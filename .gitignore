@@ -53,6 +53,7 @@ notes.txt
 data/
 raw/
 figures/
+paper/
 processed/
 code_dumped/
 *.docx
