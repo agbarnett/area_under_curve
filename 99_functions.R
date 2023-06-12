@@ -118,3 +118,91 @@ my_bin = function(x, digits){
   y = ceiling(x*mult)/mult # works as (lower, upper], better because of 1
   return(y)
 }
+
+## function to create histograms
+make_histogram = function(indata,
+                          df = 4, # degrees of freedom for smooth
+                          upper_limit = 0 # upper limit for y-axis
+){
+### create the data for the rounded histogram
+uncounted = filter(indata, 
+                   !(type %in% c('Difference','Lower','Upper'))) 
+one_digit = filter(uncounted, 
+                   auc %in% seq(0,0.9,0.1),
+                   digits == 1) %>% # count use of single digits
+  nrow()
+one_digit_percent = 100*one_digit/nrow(uncounted)
+uncounted = filter(uncounted, digits > 1) %>% # avoid spikes due to rounding
+  mutate(binned = my_bin(auc, digits = 2)) # from lower limit up to upper limit: (lower,upper]
+for_histo = group_by(uncounted, binned) %>%
+  tally() %>%
+  ungroup() %>%
+  mutate(fill = ifelse(binned %in% colour, 1, 2))
+
+# smooth Poisson model
+model = glm(n ~ ns(binned, df = df), data = for_histo, family=poisson())
+ci = add_ci(for_histo, model, names = c("lower", "upper"), alpha = 0.05) %>%
+  mutate(group = 1, # to avoid separate dotted lines by fill
+         residual = n - pred) %>% 
+  arrange(binned)
+
+# histogram
+rounded = ggplot(data = ci, aes(x = binned, y = n, fill = factor(fill), group = group))+
+  geom_bar(stat='identity', col='grey22', size=0.1)+ # size for thinner lines around bars
+  geom_line(data = ci, aes(x=binned, y=pred, group = group), lty=2)+ # smoothed
+  #geom_line(data = ci, aes(x=binned, y=lower, group = group), lty=2)+ # CI for smooth
+  #geom_line(data = ci, aes(x=binned, y=upper, group = group), lty=2)+ # CI for smooth
+  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
+  scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
+                     labels = x.breaks,
+                     expand=c(0.01,0))+
+  theme_bw()+ # keep minor grid lines
+  scale_y_continuous(expand = c(0, 0), # reduce space to x-axis ...
+                     limits = c(0,upper_limit))+ # ... had to use upper limit
+  xlab('AUC')+
+  ylab('Frequency')+
+  coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
+  theme(legend.position = 'none')
+
+# residuals
+residual = ggplot(data = ci, aes(x = binned, y = residual, fill = factor(fill)))+
+  geom_bar(stat='identity', col='grey22', size=0.1)+
+  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
+  scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
+                     labels = x.breaks,
+                     expand=c(0.01,0))+
+  theme_bw()+ # keep minor grid lines
+  xlab('AUC')+
+  ylab('Residual (observed - expected)')+
+  coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
+  theme(legend.position = 'none')
+residual
+
+#
+counts = NULL
+for (bin in unique(for_histo$binned)){
+  just_pmid = filter(uncounted, binned == bin) %>%
+    select(pmid) %>%
+    unique()
+  all_for_pmid = left_join(just_pmid, uncounted, by='pmid') %>%
+    filter(binned != bin) %>%
+    group_by(pmid) %>%
+    summarise(n = n(), mean = mean(binned)) %>% # by PMID
+    ungroup() %>%
+    summarise(meann = mean(n), meana = mean(mean)) %>% # over average per bin
+    mutate(binned = bin)
+  counts = bind_rows(counts, all_for_pmid)
+}
+counts = filter(counts, binned > 0.47)
+
+# return
+to_return = list()
+to_return$histogram = rounded
+to_return$residual = residual
+to_return$one_digit = one_digit
+to_return$one_digit_percent = one_digit_percent
+to_return$df = df
+to_return$counts = counts
+return(to_return)
+
+} # end of function

@@ -7,6 +7,7 @@ output: word_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE, error=FALSE, comment='', dpi=400)
+library(flextable)
 library(dplyr)
 library(tidyr)
 library(stringr)
@@ -76,87 +77,41 @@ The plot below shows a histogram of all AUC results that were a "mean" or "pair"
 The results are binned using a (lower, upper] limit. For example, (0.80, 0.81] is $>$ 0.80 and $\leq$ 0.81.
 
 ```{r}
-### create the data for the rounded histogram
-uncounted = filter(results, 
-              !(type %in% c('Difference','Lower','Upper'))) 
-one_digit = filter(uncounted, 
-                   auc%in% seq(0,0.9,0.1),
-                   digits == 1) %>% # count use of single digits
-  nrow()
-one_digit_percent = 100*one_digit/nrow(uncounted)
-uncounted = filter(uncounted, digits > 1) %>% # avoid spikes due to rounding
-  mutate(binned = my_bin(auc, digits = 2)) # from lower limit up to upper limit: (lower,upper]
-for_histo = group_by(uncounted, binned) %>%
-  tally() %>%
-  ungroup() %>%
-  mutate(fill = ifelse(binned %in% colour, 1, 2))
+main_results = make_histogram(indata = results, upper_limit = 7000)
+print(main_results$histogram)
 
-# smooth Poisson model
-df = 4 # degrees of freedom for smooth
-model = glm(n ~ ns(binned, df = df), data = for_histo, family=poisson())
-ci = add_ci(for_histo, model, names = c("lower", "upper"), alpha = 0.05) %>%
-  mutate(group = 1, # to avoid separate dotted lines by fill
-         residual = n - pred) %>% 
-  arrange(binned)
-
-# histogram
-rounded = ggplot(data = ci, aes(x = binned, y = n, fill = factor(fill), group = group))+
-  geom_bar(stat='identity', col='grey22', size=0.1)+ # size for thinner lines around bars
-  geom_line(data = ci, aes(x=binned, y=pred, group = group), lty=2)+ # smoothed
-  #geom_line(data = ci, aes(x=binned, y=lower, group = group), lty=2)+ # CI for smooth
-  #geom_line(data = ci, aes(x=binned, y=upper, group = group), lty=2)+ # CI for smooth
-  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
-  scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
-                     labels = x.breaks,
-                     expand=c(0.01,0))+
-  theme_bw()+ # keep minor grid lines
-  scale_y_continuous(expand=c(0, 150))+ # reduce space to x-axis
-  xlab('AUC')+
-  ylab('Frequency')+
-  coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
-  theme(legend.position = 'none')
-rounded
 # export
 jpeg('figures/histogram.jpg', width=5, height=4, units='in', res=500)
-print(rounded)
+print(main_results$histogram)
 invisible(dev.off())
 ```
 
-The dotted line shows a smooth natural spline with `r df` degrees of freedom fitted to the counts in each bin.
+The dotted line shows a smooth natural spline with `r main_results$df` degrees of freedom fitted to the counts in each bin.
 
-There were `r one_digit` (`r round(one_digit_percent, 1)`) values excluded because they were given to just 1 decimal place.
+There were `r main_results$one_digit` (`r round(main_results$one_digit_percent, 1)`) values excluded because they were given to just 1 decimal place.
 
 #### Residual plot
 
 The plot below is the residuals from the smooth fit to the distribution.
 
 ```{r}
-residual = ggplot(data = ci, aes(x = binned, y = residual, fill = factor(fill)))+
-  geom_bar(stat='identity', col='grey22', size=0.1)+
-  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
-  scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
-                     labels = x.breaks,
-                     expand=c(0.01,0))+
-  theme_bw()+ # keep minor grid lines
-  xlab('AUC')+
-  ylab('Residual (observed - expected)')+
-  coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
-  theme(legend.position = 'none')
-residual
+main_results$residual
 ```
 
 
 ##### Combined plot
 
 ```{r combined, fig.height = 8, fig.width = 7}
-rounded = rounded + ggtitle('Histogram') +
+main_results$histogram = main_results$histogram + ggtitle('Histogram') +
   xlab('')
 #  theme(margin(t=0, r=0, b=0, l=0, unit='pt')) # Not yet checked
-residual = residual + ggtitle('Residual')
-grid.arrange(rounded, residual, nrow = 2, heights=c(1,0.8))
+main_results$residual = main_results$residual + ggtitle('Residual')
+grid.arrange(main_results$histogram, 
+             main_results$residual, nrow = 2, heights=c(1,0.8))
 # export
 jpeg('figures/histogram_residuals.jpg', width=5, height=8, units='in', res=500)
-grid.arrange(rounded, residual, nrow = 2, heights=c(1,0.8))
+grid.arrange(main_results$histogram, 
+             main_results$residual, nrow = 2, heights=c(1,0.8))
 invisible(dev.off())
 ```
 
@@ -172,71 +127,31 @@ largest = group_by(results, pmid) %>%
   arrange(pmid, desc(auc)) %>%
   slice(1) %>% # largest per abstract
   ungroup()
+# run function to make plots
+largest = make_histogram(indata = largest, upper_limit = 3500)
+print(largest$histogram)
 
-### rounded histogram
-for_histo_largest = mutate(largest, binned = my_bin(auc, digits = 2)) %>% # from lower limit up to upper limit: [lower,upper)
-  group_by(binned) %>%
-  tally() %>%
-  ungroup() %>%
-  mutate(fill = ifelse(binned %in% colour, 1, 2))
-
-# smooth Poisson model
-model = glm(n ~ ns(binned, df = df), data = for_histo_largest, family=poisson())
-f = fitted(model)
-for_histo_largest = cbind(for_histo_largest, f) %>%
-  mutate(residual = n - f,
-         group = 1) %>% # to avoid separate dotted lines by fill
-  arrange(binned)
-
-# plot
-rounded_largest = ggplot(data = for_histo_largest, aes(x=binned, y=n, fill=factor(fill)))+
-  geom_bar(stat='identity', col='grey22', size=0.1)+ # size for thinner lines around bars
-  geom_line(data = for_histo_largest, aes(x=binned, y=f, group = group), lty=2)+ # smoothed
-  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
-  scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
-                     labels = x.breaks,
-                     expand=c(0.01,0))+
-  theme_bw()+ # keep minor grid lines
-  scale_y_continuous(expand=c(0, 150))+ # reduce space to x-axis
-  xlab('AUC')+
-  ylab('Frequency')+
-  coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
-  theme(legend.position = 'none')
-rounded_largest
 # export
 jpeg('figures/histogram_largest.jpg', width=5, height=4, units='in', res=500)
-print(rounded_largest)
+print(largest$histogram)
 invisible(dev.off())
 ```
 
 ##### Combined plot (largest per abstract)
 
-```{r, include=FALSE}
-##
-residual_largest = ggplot(data = for_histo_largest, aes(x = binned, y = residual, fill = factor(fill)))+
-  geom_bar(stat='identity', col='grey22', size=0.1)+
-  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
-  scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
-                     labels = x.breaks,
-                     expand=c(0.01,0))+
-  theme_bw()+ # keep minor grid lines
-  xlab('AUC')+
-  ylab('Residual (observed - expected)')+
-  coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
-  theme(legend.position = 'none')
-residual_largest
-```
-
-
 ```{r combined_largest, fig.height = 8, fig.width = 7}
 ##
-rounded_largest = rounded_largest + ggtitle('Histogram') +
+largest$histogram = largest$histogram + ggtitle('Histogram') +
   xlab('')
-residual_largest = residual_largest + ggtitle('Residual')
-grid.arrange(rounded_largest, residual_largest, nrow = 2, heights=c(1,0.8))
+largest$residual = largest$residual + ggtitle('Residual')
+grid.arrange(largest$histogram, 
+             largest$residual, 
+             nrow = 2, heights=c(1,0.8))
 # export
 jpeg('figures/histogram_residuals_largest.jpg', width=5, height=8, units='in', res=500)
-grid.arrange(rounded_largest, residual_largest, nrow = 2, heights=c(1,0.8))
+grid.arrange(largest$histogram, 
+             largest$residual, 
+             nrow = 2, heights=c(1,0.8))
 invisible(dev.off())
 ```
 
@@ -281,7 +196,7 @@ rounded_intervals = ggplot(data = for_histo_ci, aes(x = binned, y = n, fill = fa
   theme_bw()+ # keep minor grid lines
   xlab('AUC')+
   ylab('Frequency')+
-  scale_y_continuous(expand=c(0, 150))+ # reduce space to x-axis
+  scale_y_continuous(expand=c(0, 0), limits=c(0,1750))+ # reduce space to x-axis
   coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
   theme(legend.position = 'none')+
   facet_wrap(~type, scales='free_y')
@@ -409,7 +324,7 @@ rounded = ggplot(data = for_histo_detail, aes(x = binned, y = n, fill = factor(f
 rounded
 ```
 
-## Check of 0.55, 0.57 and 1 over time
+## Check of 0.55 and 0.57 over time
 
 ```{r}
 to_plot = filter(results, type %in% c('Mean','Pair')) %>%
@@ -417,19 +332,16 @@ to_plot = filter(results, type %in% c('Mean','Pair')) %>%
   group_by(year) %>%
   summarise(r1 = sum(auc==0.55),
             r2 = sum(auc==0.57),
-            r3 = sum(auc==1),
             n = n()) %>%
   mutate(p1 = r1/n,
-            p2 = r2/n,
-            p3 = r3/n) %>%
+            p2 = r2/n) %>%
   ungroup() %>%
   filter(n > 100) %>% # at least 100 results
   select('year', starts_with('p')) %>%
   pivot_longer(cols=-year) %>%
   mutate(auc = case_when(
     name == 'p1' ~ '0.55',
-    name == 'p2' ~ '0.57',
-    name == 'p3' ~ '1'
+    name == 'p2' ~ '0.57'
   ))
 #
 tplot = ggplot(data = to_plot, aes(x = year, y=value, group = auc, col=auc)) +
@@ -459,24 +371,9 @@ bplot
 ## Numbers of other AUC statistics in each band
 
 ```{r}
-counts = NULL
-for (bin in unique(for_histo$binned)){
-  just_pmid = filter(uncounted, binned == bin) %>%
-    select(pmid) %>%
-    unique()
-  all_for_pmid = left_join(just_pmid, uncounted, by='pmid') %>%
-    filter(binned != bin) %>%
-    group_by(pmid) %>%
-    summarise(n = n(), mean = mean(binned)) %>% # by PMID
-    ungroup() %>%
-    summarise(meann = mean(n), meana = mean(mean)) %>% # over average per bin
-    mutate(binned = bin)
-  counts = bind_rows(counts, all_for_pmid)
-}
-counts = filter(counts, binned > 0.47)
 
 # plot of mean numbers
-number_line = ggplot(data = counts, aes(x = binned, y = meann))+
+number_line = ggplot(data = main_results$counts, aes(x = binned, y = meann))+
   geom_line(size=1.05, col='goldenrod1')+
   scale_x_continuous(breaks = x.breaks,
                      labels = x.breaks,
@@ -497,7 +394,7 @@ The plot above shows the number of other AUC statistics per abstract for each AU
 
 ```{r}
 # line plot of means
-mean_binned = ggplot(data = counts, aes(x = binned, y = meana))+
+mean_binned = ggplot(data = main_results$counts, aes(x = binned, y = meana))+
   geom_line(size=1.05, col='dodgerblue')+
   scale_x_continuous(breaks = x.breaks,
                      labels = x.breaks,
@@ -512,3 +409,120 @@ mean_binned
 ```
 
 The other AUC statistics in an abstract tended to be larger when there was a larger AUC statistic included. This is probably because similar models tended to be compared.
+
+# Machine learning
+
+Here we show the results stratified by abstracts that had machine learning keywords or not. 
+
+
+```{r}
+### prepare data
+uncounted = filter(results, 
+                   !(type %in% c('Difference','Lower','Upper')), 
+                   digits > 1) %>% # avoid spikes due to rounding
+  mutate(binned = my_bin(auc, digits = 2)) # from lower limit up to upper limit: (lower,upper]
+
+### add ML information from abstract
+ml = select(abstracts, pmid, any_ml)
+uncounted = left_join(uncounted, ml, by='pmid')
+# frequencies
+for_histo_ml = filter(uncounted, any_ml == TRUE) %>%
+  group_by(binned) %>%
+  tally() %>%
+  ungroup() %>%
+  mutate(fill = ifelse(binned %in% colour, 1, 2))
+for_histo_not_ml = filter(uncounted, any_ml == FALSE) %>%
+  group_by(binned) %>%
+  tally() %>%
+  ungroup() %>%
+  mutate(fill = ifelse(binned %in% colour, 1, 2))
+
+# smooth Poisson model
+df = 4 # degrees of freedom for smooth
+model_ml = glm(n ~ ns(binned, df = df), data = for_histo_ml, family=poisson())
+model_not_ml = glm(n ~ ns(binned, df = df), data = for_histo_not_ml, family=poisson())
+ci_ml = add_ci(for_histo_ml, model_ml, names = c("lower", "upper"), alpha = 0.05) %>%
+  mutate(group = 1, # to avoid separate dotted lines by fill
+         residual = n - pred) %>% 
+  arrange(binned)
+ci_not_ml = add_ci(for_histo_not_ml, model_not_ml, names = c("lower", "upper"), alpha = 0.05) %>%
+  mutate(group = 1, # to avoid separate dotted lines by fill
+         residual = n - pred) %>% 
+  arrange(binned)
+
+# histogram
+ci = bind_rows(ci_ml, ci_not_ml, .id='ml') %>%
+  mutate(ml = ifelse(ml==1, 'Machine learning', 'Other'))
+rounded = ggplot(data = ci, aes(x = binned, y = n, fill = factor(fill), group = group))+
+  geom_bar(stat='identity', col='grey22', size=0.1)+ # size for thinner lines around bars
+  geom_line(data = ci, aes(x=binned, y=pred, group = group), lty=2)+ # smoothed
+  #geom_line(data = ci, aes(x=binned, y=lower, group = group), lty=2)+ # CI for smooth
+  #geom_line(data = ci, aes(x=binned, y=upper, group = group), lty=2)+ # CI for smooth
+  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
+  scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
+                     labels = x.breaks,
+                     expand=c(0.01,0))+
+  theme_bw()+ # keep minor grid lines
+  scale_y_continuous(limits=c(0,NA),expand=c(0, 0))+ # reduce space to x-axis
+  xlab('AUC')+
+  ylab('Frequency')+
+  coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
+  theme(legend.position = 'none')+
+  facet_wrap(~ml, scales='free')
+rounded # display in Word
+
+# residuals
+residual = ggplot(data = ci, aes(x = binned, y = residual, fill = factor(fill)))+
+  geom_bar(stat='identity', col='grey22', size=0.1)+
+  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
+  scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
+                     labels = x.breaks,
+                     expand=c(0.01,0))+
+  theme_bw()+ # keep minor grid lines
+  xlab('AUC')+
+  ylab('Residual (observed - expected)')+
+  coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
+  theme(legend.position = 'none')+
+  facet_wrap(~ml, scales='free')
+```
+
+#### Combined plot for machine learning
+
+```{r, fig.height = 8, fig.width = 7}
+# combined plot
+rounded = rounded + ggtitle('Histogram') +
+  xlab('')
+residual = residual + ggtitle('Residual')
+grid.arrange(rounded, residual, nrow = 2, heights=c(1,0.8))
+# export
+jpeg('figures/histogram_residuals_machine_learning.jpg', width=7, height=7, units='in', res=500)
+grid.arrange(rounded, residual, nrow = 2, heights=c(1,0.8))
+invisible(dev.off())
+```
+
+# Just PLOS ONE
+
+Here we show the results just for the journal _PLOS ONE_, which welcomes 'negative' results. 
+
+```{r, fig.height = 8, fig.width = 7}
+just_plos = filter(abstracts, 
+                   str_detect(jabbrv, 'PLoS One'),
+                   any_auc == TRUE) %>%
+  select(pmid, jabbrv)
+to_plot = left_join(just_plos, results, by='pmid')
+plos_results = make_histogram(indata = to_plot, upper_limit = 205)
+#
+plos_results$histogram = plos_results$histogram + 
+  scale_y_continuous(limits=c(0,205), expand=c(0,NA)) # fix axes
+#
+grid.arrange(plos_results$histogram, 
+             plos_results$residual, 
+             nrow = 2, heights=c(1,0.8))
+
+# export
+jpeg('figures/histogram_just_plos.jpg', width=5, height=8, units='in', res=500)
+grid.arrange(plos_results$histogram, 
+             plos_results$residual, 
+             nrow = 2, heights=c(1,0.8))
+invisible(dev.off())
+```
