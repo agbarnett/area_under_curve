@@ -113,6 +113,12 @@ jpeg('figures/histogram_residuals.jpg', width=5, height=8, units='in', res=500)
 grid.arrange(main_results$histogram, 
              main_results$residual, nrow = 2, heights=c(1,0.8))
 invisible(dev.off())
+# version for slide
+main_results$histogram = main_results$histogram + xlab('AUC')
+jpeg('figures/histogram_residuals_slide.jpg', width=8, height=4.5, units='in', res=500)
+grid.arrange(main_results$histogram, 
+             main_results$residual, ncol = 2)
+invisible(dev.off())
 ```
 
 ## Largest per abstract
@@ -226,6 +232,10 @@ grid.arrange(rounded_intervals, residual_intervals, nrow = 2, heights=c(1,0.8))
 # export
 jpeg('figures/histogram_residuals_intervals.jpg', width=6, height=8, units='in', res=500)
 grid.arrange(rounded_intervals, residual_intervals, nrow = 2, heights=c(1,0.8))
+invisible(dev.off())
+# export
+jpeg('figures/histogram_residuals_intervals_slide.jpg', width=8, height=4.5, units='in', res=500)
+grid.arrange(rounded_intervals, residual_intervals, nrow = 2, heights=c(1,1))
 invisible(dev.off())
 ```
 
@@ -509,7 +519,8 @@ just_plos = filter(abstracts,
                    str_detect(jabbrv, 'PLoS One'),
                    any_auc == TRUE) %>%
   select(pmid, jabbrv)
-to_plot = left_join(just_plos, results, by='pmid')
+to_plot = left_join(just_plos, results, by='pmid') %>%
+  filter(auc > 0.48)
 plos_results = make_histogram(indata = to_plot, upper_limit = 205)
 #
 plos_results$histogram = plos_results$histogram + 
@@ -524,5 +535,10 @@ jpeg('figures/histogram_just_plos.jpg', width=5, height=8, units='in', res=500)
 grid.arrange(plos_results$histogram, 
              plos_results$residual, 
              nrow = 2, heights=c(1,0.8))
+invisible(dev.off())
+#
+jpeg('figures/histogram_just_plos_slide.jpg', width=7, height=4.5, units='in', res=500)
+grid.arrange(plos_results$histogram, 
+             plos_results$residual, ncol=2)
 invisible(dev.off())
 ```

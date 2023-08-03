@@ -84,6 +84,10 @@ grid.arrange(tplot2, tplot1, ncol=2)
 jpeg('figures/trend.jpg', width=5, height=4, units='in', res=500)
 grid.arrange(tplot2, tplot1, ncol=2)
 invisible(dev.off())
+# export for slide
+jpeg('figures/trend_for_slide.jpg', width=7, height=4, units='in', res=500)
+grid.arrange(tplot2, tplot1, ncol=2)
+invisible(dev.off())
 
 # for text
 first = filter(abstracts, any_auc==TRUE) %>%

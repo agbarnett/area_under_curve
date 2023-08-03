@@ -160,3 +160,28 @@ for (person in people){
   saveWorkbook(wb, excel_file, overwrite = TRUE) 
 }
 ```
+
+### General check
+
+```{r}
+TeachingDemos::char2seed('kidderminster')
+## asked for by reviewer
+# 100 without AUC
+no_auc = filter(abstract.data, any_auc == FALSE) %>%
+  sample_n(n_check_excel) %>% 
+  select(pmid)
+# 100 with AUC
+with_auc = filter(abstract.data, any_auc == TRUE) %>%
+  sample_n(n_check_excel)%>% 
+  select(pmid)
+#
+excel_file = paste('validate/with_without.xlsx', sep='')
+wb <- createWorkbook()
+# add to worksheet
+addWorksheet(wb, sheetName = 'With AUC')
+addWorksheet(wb, sheetName = 'Without AUC')
+writeDataTable(wb, sheet = 1, x = with_auc, colNames = TRUE, rowNames = FALSE)
+writeDataTable(wb, sheet = 2, x = no_auc, colNames = TRUE, rowNames = FALSE)
+# save
+saveWorkbook(wb, excel_file, overwrite = TRUE) 
+```

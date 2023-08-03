@@ -118,3 +118,74 @@ grid.arrange(rounded, residual, nrow = 2, heights=c(1,0.8))
 invisible(dev.off())
 ```
 
+# External validation
+
+This section shows the results limiting to AUC values were external validation was mentioned in the abstract. This is a request from a reviewer.
+
+```{r}
+# get the data
+load('data/analysis_ready.RData') # from 4_combine_results.R
+pmids_external = filter(abstracts, any_external) %>%
+  pull(pmid)
+results = filter(results, auc <= 0.99,
+                 pmid %in% pmids_external)
+
+### create the data for the rounded histogram
+for_histo = filter(results, 
+              (digits > 1 | auc==1), # avoid spikes due to rounding; include all 1's, even those with 0 decimal places
+              !(type %in% c('Difference','Lower','Upper'))) %>%
+  mutate(binned = my_bin(auc, digits = 2)) %>% # (lower,upper]
+  group_by(binned) %>%
+  tally() %>%
+  ungroup() %>%
+  mutate(fill = ifelse(binned %in% colour, 1, 2))
+
+# smooth Poisson model
+df = 4
+model = glm(n ~ ns(binned, df = df), data = for_histo, family=poisson())
+f = fitted(model)
+for_histo = cbind(for_histo, f) %>%
+  mutate(residual = n - f,
+         group = 1) %>% # to avoid separate dotted lines by fill
+  arrange(binned)
+
+# histogram
+rounded_external = ggplot(data = for_histo, aes(x = binned, y = n, fill = factor(fill), group = group))+
+  geom_bar(stat='identity', col='grey22', size=0.1)+ # size for thinner lines around bars
+  geom_line(data = for_histo, aes(x=binned, y=f, group = group), lty=2)+ # smoothed
+  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
+  scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
+                     labels = x.breaks,
+                     expand=c(0,0))+
+  theme_bw()+ # keep minor grid lines
+#  scale_y_continuous(expand=c(0, 150))+ # reduce space to x-axis
+  xlab('AUC')+
+  ylab('Frequency')+
+  coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
+  theme(legend.position = 'none')
+
+# histogram
+residual_external = ggplot(data = for_histo, aes(x = binned, y = residual, fill = factor(fill)))+
+  geom_bar(stat='identity', col='grey22', size=0.1)+
+  scale_fill_manual(NULL, values=c('dark red','pink','red'))+
+  scale_x_continuous(breaks = x.breaks + (0.01)/2, # nudge breaks to top of bar
+                     labels = x.breaks,
+                     expand=c(0.01,0))+
+  theme_bw()+ # keep minor grid lines
+  xlab('AUC')+
+  ylab('Residual (observed - expected)')+
+  coord_cartesian(xlim=c(lower_auc_plot, NA))+ # focus on near 0.5 and above
+  theme(legend.position = 'none')
+residual_external
+
+## combined plot
+rounded_external = rounded_external + ggtitle('Histogram') +
+  xlab('')
+#  theme(margin(t=0, r=0, b=0, l=0, unit='pt')) # Not yet checked
+residual_external = residual_external + ggtitle('Residual')
+grid.arrange(rounded_external, residual_external, nrow = 2, heights=c(1,0.8))
+# export
+jpeg('figures/combined_external_validation.jpg', width=5, height=8, units='in', res=500)
+grid.arrange(rounded_external, residual_external, nrow = 2, heights=c(1,0.8))
+invisible(dev.off())
+```

@@ -11,14 +11,16 @@ sensitivity = FALSE
 here = getwd()
 setwd("//hpc-fs/barnetta/auc/processed") # move to lyra where processed files are
 to_combine_all = dir()
+to_combine = to_combine_all[!str_detect(to_combine_all, 'external')] # additional data (removed from download list)
 if(sensitivity==FALSE){
-  to_combine = to_combine_all[!str_detect(to_combine_all, 'sensitivity')]
+  to_combine = to_combine[!str_detect(to_combine_all, 'sensitivity')]
   ofile = 'data/analysis_ready.RData'
 }
 if(sensitivity==TRUE){  # just methods section
-  to_combine = to_combine_all[str_detect(to_combine_all, 'sensitivity')]
+  to_combine = to_combine[str_detect(to_combine_all, 'sensitivity')]
   ofile = 'data/analysis_ready_sensitivity.RData' 
 }
+to_combine = to_combine[!is.na(to_combine)]
 # check that all files exist - see 4_check_raw.R
 
 # loop through files (takes a while)
@@ -41,6 +43,13 @@ for (file in to_combine){ #
                     date = as.Date(date, origin='1970-01-01'))
     }
   }
+  
+  # get extra external data
+  original = abstract.data
+  extra = str_replace(file, 'pubmed', 'external')
+  load(extra)
+  if(nrow(original) != nrow(abstract.data)){cat('Error', file_num, '\n')}
+  abstract.data = full_join(original, abstract.data, by='pmid')
   
   ## create frame of exclusions
   # PK exclusions in second round
