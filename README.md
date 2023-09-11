@@ -2,6 +2,8 @@
 
 Extracting areas under the curve (AUC) values from published abstracts, and examining patterns in the distribution around the thresholds at 0.7, 0.8 and 0.9.
 
+The published paper is available [here](https://bmcmedicine.biomedcentral.com/articles/10.1186/s12916-023-03048-6).
+
 ## R version and packages
 
 ```
